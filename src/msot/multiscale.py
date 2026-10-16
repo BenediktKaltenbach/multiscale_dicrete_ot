@@ -14,8 +14,9 @@ def north_west_corner(mu, nu, order_x, order_y):
     return rows, cols
 
 
-def solve_sparse(X, Y, mu, nu, cost, S, N1, solver, tol=1e-12, max_iter=100):
-    """Alg. 4.1. Stops when N no longer grows or C(pi) no longer decreases."""
+def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tol=1e-12, max_iter=100):
+    """Alg. 4.1 at scale k, X the points of X_k. Stops when N no longer grows or C(pi) no longer decreases."""
+    Y, nu = Yh.rep_points(k), Yh.mass[k]
     rows, cols = N1
     state, C_old, history = None, np.inf, []
     for _ in range(max_iter):
@@ -23,7 +24,7 @@ def solve_sparse(X, Y, mu, nu, cost, S, N1, solver, tol=1e-12, max_iter=100):
         pi, alpha, beta, state = solver.solve_local(rows, cols, c, mu, nu, state)
         C = float(pi.data @ cost.c(X[pi.row], Y[pi.col]))
         history.append({"C": C, "N": len(rows)})
-        new_rows, new_cols = shield(pi, S, X, Y, cost, tol)
+        new_rows, new_cols = shield(pi, S, X, Yh, k, cost, tol)
         old = rows.astype(np.int64) * len(Y) + cols
         new = new_rows.astype(np.int64) * len(Y) + new_cols
         if np.isin(new, old).all() or C >= C_old - tol * abs(C_old):
