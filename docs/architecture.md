@@ -42,7 +42,7 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 
 ## Map t and candidate sets
 - t(x) = argmax_y pi(x, y).
-- S(x_A): Delaunay 1-ring; adaptive 2-ring where q is too small; sector-kNN as a comparison. Boundary vertices have q <= 0 (P is unbounded); this is accepted.
+- S(x_A): Delaunay 1-ring (baseline) and sector neighbours (nearest point per angular sector, 6 and 8 sectors) as the comparison in step 6. Possible expansion: adaptive 2-ring where 0 < q < q_min (q_min about 0.5). Boundary vertices have q <= 0 (P is unbounded); this is accepted.
 - At coarse levels: the 1-ring of that level's mesh.
 
 ## Solver notes
@@ -56,7 +56,7 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 3. Mesh hierarchy (B) + `search_tree`, checked against the brute-force Y_hat.
 4. `solve_multiscale`.
 5. Quadtree (A) as a baseline; compare A vs B.
-6. Variants of S with q/D statistics.
+6. Variants of S with q/D statistics: 1-ring vs sector neighbours (6, 8); later possibly an adaptive 2-ring.
 7. HiGHS warm start.
 8. MTW costs.
 

@@ -62,18 +62,50 @@ def _match(labels, edge_start, edge_end):
     return np.unique(root, return_inverse=True)[1][labels]
 
 
-def _coarsening_parent(H):
-    k = H.K
+def _attach(labels, edge_start, edge_end):
+    """Joins each single-cell group to the adjacent group with the shortest edge and at most 4 cells."""
+    labels = labels.copy()
+    size = np.bincount(labels)
+    single = size[labels] == 1
+    touching = single[edge_start] | single[edge_end]
+    for a, b in zip(edge_start[touching].tolist(), edge_end[touching].tolist()):
+        for cell, other in ((a, b), (b, a)):
+            if size[labels[cell]] == 1 and size[labels[other]] <= 4:
+                size[labels[cell]] -= 1
+                labels[cell] = labels[other]
+                size[labels[other]] += 1
+                break
+    return np.unique(labels, return_inverse=True)[1]
+
+
+def _sorted_edges(H, k):
+    """Edges a < b of the level-k mesh, sorted by the distance between the reps, and that distance."""
     index_pointer, indices = H.neighbours[k]
     edge_start = np.repeat(np.arange(H.number_of_cells(k)), np.diff(index_pointer))
-    edge_end = indices
-    keep = edge_start < edge_end
-    edge_start, edge_end = edge_start[keep], edge_end[keep]
+    keep = edge_start < indices
+    edge_start, edge_end = edge_start[keep], indices[keep]
     points = H.rep_points(k)
-    order = np.argsort(np.linalg.norm(points[edge_start] - points[edge_end], axis=1), kind="stable")
-    edge_start, edge_end = edge_start[order], edge_end[order]
-    labels = np.arange(H.number_of_cells(k))
-    return _match(_match(labels, edge_start, edge_end), edge_start, edge_end)
+    length = np.linalg.norm(points[edge_start] - points[edge_end], axis=1)
+    order = np.argsort(length, kind="stable")
+    return edge_start[order], edge_end[order], length[order]
+
+
+def _passes_cap(edge_start, edge_end, length, n, length_cap):
+    """length(a, b) <= length_cap * max(spacing[a], spacing[b]); spacing = distance to the nearest other rep."""
+    spacing = np.full(n, np.inf)
+    np.minimum.at(spacing, edge_start, length)
+    np.minimum.at(spacing, edge_end, length)
+    return length <= length_cap * np.maximum(spacing[edge_start], spacing[edge_end])
+
+
+def _coarsening_parent(H, length_cap):
+    edge_start, edge_end, length = _sorted_edges(H, H.K)
+    labels = np.arange(H.number_of_cells(H.K))
+    if length_cap is None:
+        return _match(_match(labels, edge_start, edge_end), edge_start, edge_end)
+    allowed = _passes_cap(edge_start, edge_end, length, len(labels), length_cap)
+    edge_start, edge_end = edge_start[allowed], edge_end[allowed]
+    return _attach(_match(_match(labels, edge_start, edge_end), edge_start, edge_end), edge_start, edge_end)
 
 
 def _add_level(H, parent):
@@ -99,27 +131,27 @@ def _add_level(H, parent):
     H.neighbours.append(_mesh(H.points[rep]))
 
 
-def _coarsen(H):
-    _add_level(H, _coarsening_parent(H) if H.number_of_cells(H.K) > 1 else np.zeros(1, dtype=int))
+def _coarsen(H, length_cap):
+    _add_level(H, _coarsening_parent(H, length_cap) if H.number_of_cells(H.K) > 1 else np.zeros(1, dtype=int))
 
 
 def _add_top(H):
     _add_level(H, np.zeros(H.number_of_cells(H.K), dtype=int))
 
 
-def agglomerate(points, mass, n_dense=256):
+def agglomerate(points, mass, n_dense=256, length_cap=3.0):
     H = _level_zero(points, mass)
     while H.number_of_cells(H.K) > n_dense:
-        _coarsen(H)
+        _coarsen(H, length_cap)
     _add_top(H)
     return H
 
 
-def build_pair(X, mu, Y, nu, n_dense=256):
+def build_pair(X, mu, Y, nu, n_dense=256, length_cap=3.0):
     HX, HY = _level_zero(X, mu), _level_zero(Y, nu)
     while max(HX.number_of_cells(HX.K), HY.number_of_cells(HY.K)) > n_dense:
-        _coarsen(HX)
-        _coarsen(HY)
+        _coarsen(HX, length_cap)
+        _coarsen(HY, length_cap)
     _add_top(HX)
     _add_top(HY)
     return HX, HY

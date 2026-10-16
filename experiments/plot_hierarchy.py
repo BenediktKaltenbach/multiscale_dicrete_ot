@@ -14,16 +14,18 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial import ConvexHull, QhullError
 
-from msot.hierarchy import _match, agglomerate, build_pair_quadtree
+from msot.hierarchy import _attach, _match, _passes_cap, _sorted_edges, agglomerate, build_pair_quadtree
 from msot.problems import sample_points
 
 RESULTS = Path(__file__).parent / "results"
 NUMBER_OF_POINTS = 250
 N_DENSE = 6
 SEED = 0
+LENGTH_CAP = 3.0
 KINDS = ["uniform", "clustered"]
 PALETTE = plt.get_cmap("tab10").colors
-ROUND_ONE_COLOUR, ROUND_TWO_COLOUR, COPY_COLOUR = "tab:blue", "tab:orange", "tab:red"
+ROUND_ONE_COLOUR, ROUND_TWO_COLOUR, ATTACH_COLOUR, COPY_COLOUR = "tab:blue", "tab:orange", "tab:green", "tab:red"
+REFUSED_COLOUR = "tab:purple"
 
 
 def mesh_edges(neighbours):
@@ -33,19 +35,28 @@ def mesh_edges(neighbours):
     return edge_start[keep], indices[keep]
 
 
+def first_per_label(edges, labels):
+    return edges[np.unique(labels, return_index=True)[1]]
+
+
 def matching_rounds(H, k):
-    """Replays _coarsening_parent for step k -> k+1 and returns the edges each round used."""
-    edge_start, edge_end = mesh_edges(H.neighbours[k])
-    points = H.rep_points(k)
-    order = np.argsort(np.linalg.norm(points[edge_start] - points[edge_end], axis=1), kind="stable")
-    edge_start, edge_end = edge_start[order], edge_end[order]
-    round_one = _match(np.arange(H.number_of_cells(k)), edge_start, edge_end)
-    round_two = _match(round_one, edge_start, edge_end)
-    assert np.array_equal(round_two, H.parent[k])
+    """Replays _coarsening_parent for step k -> k+1 and returns the edges each stage used, as indices into the edges."""
+    edge_start, edge_end, length = _sorted_edges(H, k)
+    allowed = _passes_cap(edge_start, edge_end, length, H.number_of_cells(k), LENGTH_CAP)
+    start, end = edge_start[allowed], edge_end[allowed]
+    round_one = _match(np.arange(H.number_of_cells(k)), start, end)
+    round_two = _match(round_one, start, end)
+    parent = _attach(round_two, start, end)
+    assert np.array_equal(parent, H.parent[k])
     paired = np.flatnonzero(round_one[edge_start] == round_one[edge_end])
-    merging = np.flatnonzero((round_two[edge_start] == round_two[edge_end]) & (round_one[edge_start] != round_one[edge_end]))
-    merging = merging[np.unique(round_two[edge_start[merging]], return_index=True)[1]]
-    return edge_start, edge_end, paired, merging, round_one, round_two
+    merging = np.flatnonzero(allowed & (round_two[edge_start] == round_two[edge_end])
+                             & (round_one[edge_start] != round_one[edge_end]))
+    merging = first_per_label(merging, round_two[edge_start[merging]])
+    single = np.bincount(round_two)[round_two] == 1
+    attaching = np.flatnonzero(allowed & (parent[edge_start] == parent[edge_end])
+                               & (single[edge_start] | single[edge_end]))
+    attaching = first_per_label(attaching, np.where(single[edge_start[attaching]], edge_start[attaching], edge_end[attaching]))
+    return edge_start, edge_end, np.flatnonzero(~allowed), paired, merging, attaching, round_one, parent
 
 
 def cell_adjacency(H, k):
@@ -80,7 +91,7 @@ def number_of_split_cells(H, k):
 
 def children_histogram(H, k):
     number_of_children = np.bincount(H.parent[k - 1], minlength=H.number_of_cells(k))
-    return np.bincount(number_of_children, minlength=5)
+    return np.bincount(number_of_children, minlength=6)
 
 
 def elongation(H, k):
@@ -137,29 +148,35 @@ def plot_matching(H, kind, path):
     rows = -(-len(steps) // columns)
     figure, axes = plt.subplots(rows, columns, figsize=(7 * columns, 7 * rows), squeeze=False)
     for axis, k in zip(axes.flat, steps):
-        edge_start, edge_end, paired, merging, round_one, round_two = matching_rounds(H, k)
+        edge_start, edge_end, refused, paired, merging, attaching, round_one, parent = matching_rounds(H, k)
         reps = H.rep_points(k)
         segments = np.stack([reps[edge_start], reps[edge_end]], axis=1)
         axis.scatter(*H.points.T, s=3, c="0.75", zorder=0)
-        axis.add_collection(LineCollection(segments, colors="0.75", lw=0.6, zorder=1))
+        axis.add_collection(LineCollection(np.delete(segments, refused, axis=0), colors="0.75", lw=0.6, zorder=1))
+        axis.add_collection(LineCollection(segments[refused], colors=REFUSED_COLOUR, lw=0.8, ls=(0, (3, 2)), zorder=1))
         axis.add_collection(LineCollection(segments[paired], colors=ROUND_ONE_COLOUR, lw=2.4, zorder=2))
         axis.add_collection(LineCollection(segments[merging], colors=ROUND_TWO_COLOUR, lw=2.4, zorder=2))
+        axis.add_collection(LineCollection(segments[attaching], colors=ATTACH_COLOUR, lw=2.4, zorder=2))
         axis.scatter(*reps.T, s=10, c="black", zorder=3)
         single_after_one = np.bincount(round_one)[round_one] == 1
-        copy = np.bincount(round_two)[round_two] == 1
+        copy = np.bincount(parent)[parent] == 1
         axis.scatter(*reps[single_after_one].T, s=90, facecolors="none", edgecolors=ROUND_ONE_COLOUR, lw=1.3, zorder=4)
         axis.scatter(*reps[copy].T, s=140, marker="s", facecolors="none", edgecolors=COPY_COLOUR, lw=1.6, zorder=4)
         setup(axis, f"{kind}: matching step {k} -> {k + 1}, {H.number_of_cells(k)} -> {H.number_of_cells(k + 1)} cells\n"
                     f"round 1: {len(paired)} pairs, {single_after_one.sum()} single; "
-                    f"round 2: {len(merging)} merges; {copy.sum()} copy cells")
+                    f"round 2: {len(merging)} merges\n"
+                    f"{len(attaching)} attached; {copy.sum()} copy cells; {len(refused)} edges refused "
+                    f"(length_cap {LENGTH_CAP})")
     for axis in axes.flat[len(steps):]:
         axis.axis("off")
     legend = [Line2D([], [], color="0.75", lw=0.6, label="Delaunay edge of level k reps"),
+              Line2D([], [], color=REFUSED_COLOUR, lw=0.8, ls=(0, (3, 2)), label="refused by the length cap"),
               Line2D([], [], color=ROUND_ONE_COLOUR, lw=2.4, label="round 1: pairs cells"),
               Line2D([], [], color=ROUND_TWO_COLOUR, lw=2.4, label="round 2: merges round-1 groups"),
+              Line2D([], [], color=ATTACH_COLOUR, lw=2.4, label="attaches a leftover single cell"),
               Line2D([], [], ls="", marker="o", mfc="none", mec=ROUND_ONE_COLOUR, ms=9, label="unmatched in round 1"),
               Line2D([], [], ls="", marker="s", mfc="none", mec=COPY_COLOUR, ms=10, label="copy cell (single child)")]
-    figure.legend(handles=legend, loc="lower center", ncol=3, fontsize=10, frameon=False)
+    figure.legend(handles=legend, loc="lower center", ncol=4, fontsize=10, frameon=False)
     figure.tight_layout(rect=(0, 0.05, 1, 1))
     figure.savefig(path, dpi=150)
     plt.close(figure)
@@ -180,9 +197,9 @@ def panel_text(H, k):
     lines = [f"{H.number_of_cells(k)} cells"]
     if k > 0:
         histogram = children_histogram(H, k)
-        lines.append("children 1/2/3/4: " + "/".join(str(c) for c in histogram[1:5]))
-        if len(histogram) > 5:
-            lines.append(f"more than 4 children: {histogram[5:].sum()} (max {len(histogram) - 1})")
+        lines.append("children 1/2/3/4/5: " + "/".join(str(c) for c in histogram[1:6]))
+        if len(histogram) > 6:
+            lines.append(f"more than 5 children: {histogram[6:].sum()} (max {len(histogram) - 1})")
         lines.append(f"not contiguous: {number_of_split_cells(H, k)}")
     return "\n".join(lines)
 
@@ -219,7 +236,7 @@ def main():
     for kind in KINDS:
         points = sample_points(NUMBER_OF_POINTS, kind, np.random.default_rng(SEED))
         mass = np.full(len(points), 1 / len(points))
-        hierarchies = {"mesh": agglomerate(points, mass, N_DENSE),
+        hierarchies = {"mesh": agglomerate(points, mass, N_DENSE, LENGTH_CAP),
                        "quadtree": build_pair_quadtree(points, mass, points, mass)[0]}
         for name, H in hierarchies.items():
             report(H, f"{kind} {name}")
