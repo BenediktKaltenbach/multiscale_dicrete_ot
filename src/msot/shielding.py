@@ -36,7 +36,8 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
     """Alg. 5.1 at scale k. pi is COO; all stored entries count as spt pi.
 
     X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k. If the cost provides
-    needed_candidates, redundant candidates are dropped before step-ii and step-iii.
+    needed_candidates, redundant candidates are skipped in the search (step-iii, Y_hat unchanged); step-ii
+    still adds (xA, t(xs)) for all candidates, since these entries speed up the convergence of Alg. 4.1.
     """
     t = extract_map(pi)
     Y = Yh.rep_points(k)
@@ -45,9 +46,8 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
     rows, columns = [pi.row], [pi.col]
     for a in range(len(X)):
         candidates = indices[index_pointer[a]:index_pointer[a + 1]]
-        if prune is not None:
-            candidates = candidates[prune(X[a], X[candidates], Y[t[candidates]], tolerance)]
-        Y_hat = search_tree(X[a], X[candidates], Y[t[candidates]], Yh, k, cost, tolerance)
+        needed = candidates if prune is None else candidates[prune(X[a], X[candidates], Y[t[candidates]], tolerance)]
+        Y_hat = search_tree(X[a], X[needed], Y[t[needed]], Yh, k, cost, tolerance)
         new = np.concatenate([t[candidates], Y_hat])
         rows.append(np.full(len(new), a))
         columns.append(new)

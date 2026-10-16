@@ -1,4 +1,4 @@
-"""Step 6: shielding candidate sets S. Sector neighbours (6, 8) with and without pruning vs. the Delaunay 1-ring."""
+"""Step 6: shielding candidate sets S. Delaunay 1-ring vs. 8 sector neighbours vs. the 6 closest of them; pruning for the search only."""
 import sys
 from pathlib import Path
 
@@ -20,11 +20,11 @@ from msot.solvers.highs import Highs
 RESULTS = Path(__file__).parent / "results"
 TOLERANCE = 1e-12
 VARIANTS = {
-    "1-ring, unpruned": (None, False),
-    "1-ring, pruned": (None, True),
-    "6 sectors, pruned": (6, True),
-    "8 sectors, pruned": (8, True),
-    "8 sectors, unpruned": (8, False),
+    "1-ring": (None, None, False),
+    "1-ring, search pruned": (None, None, True),
+    "8 sectors": (8, None, False),
+    "8 sectors, search pruned": (8, None, True),
+    "6 closest of 8 sectors": (8, 6, False),
 }
 
 
@@ -72,8 +72,8 @@ def main():
         report += [f"== {kind}", f"{'':22s}" + "".join(f"{c:>13s}" for c in columns)]
         figure, axes = plt.subplots(1, len(VARIANTS), figsize=(4 * len(VARIANTS), 4), sharex=True, sharey=True)
         reference_cost = None
-        for axis, (name, (sectors, prune)) in zip(axes, VARIANTS.items()):
-            candidates = None if sectors is None else lambda H, k: sector_neighbours(H.rep_points(k), sectors)
+        for axis, (name, (sectors, keep, prune)) in zip(axes, VARIANTS.items()):
+            candidates = None if sectors is None else lambda H, k: sector_neighbours(H.rep_points(k), sectors, keep=keep)
             cost = SquaredEuclidean(prune=prune)
             pi, _, _, info = solve_multiscale(HX, HY, cost, Highs(), candidates=candidates)
             C = pi.data @ cost.c(X[pi.row], Y[pi.col])

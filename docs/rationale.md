@@ -24,9 +24,8 @@ Why the project looks the way it does. `architecture.md` and the component specs
 
 ## 4. Candidate sets S(x_A)
 - What matters is the cone constant q from Prop. 5.3 (5.6): the larger the angular gaps between candidate directions, the larger the fence P and Y_hat. The bound gives Y_hat inside a ball of radius about L D / q.
-- **Decision: sector neighbours** (`mesh.sector_neighbours`, 6 or 8 equal angular sectors, the nearest point per sector among the 32 nearest). Filled sectors guarantee q >= cos(2 pi / sectors) for interior vertices.
-- Why not the plain Delaunay 1-ring: interior vertices always have q > 0, but the q tail is low on random points (5% quantile 0.19â€“0.37), and sliver edges at the boundary give D up to 300â€“500 spacings.
-- **Pruning** (`SquaredEuclidean.needed_candidates`): a candidate whose half-plane is not a face of the polytope P leaves Y_hat unchanged and is dropped. This saves search work and the step-ii entry. Euclidean geometry, hence inside the cost class. Measured (n = 4096, warm start, `candidate_sets.txt`): N 10–25% smaller, Y_hat unchanged, but 25–40% more solve_sparse iterations (the dropped step-ii entries help the LP converge) and about twice the shield time, so it is off by default (`SquaredEuclidean(prune=True)`).
+- **Decision (2026-10-17): Delaunay 1-ring as the default**, sector neighbours (`mesh.sector_neighbours`, nearest point per angular sector among the 32 nearest; filled sectors give q >= cos(2 pi / sectors)) as an option via `candidates=`. Measured at n = 4096 with warm start (`candidate_sets.txt`), both unpruned: run time is a tie (8 sectors 3–9% faster, within the noise of iteration counts); the 1-ring gives the sparser N on clustered (-25%) and anisotropic (-19%) points, 8 sectors on the grid (-11%), uniform equal. The 1-ring's low q tail (5% quantile 0.19–0.37) matters less in practice than the empty outward sectors at cluster boundaries (1.4–3.6% of vertices with q <= 0 for sectors vs. 0.4–0.6% for the 1-ring). 6 sectors are the weakest variant. Also tested: the 6 closest of the 8 sector neighbours (`keep=6`): dropping two sectors lowers q (5% quantile 0.09–0.16) and gives the largest N on uniform points (10.9 per point vs. 8.75), no gain elsewhere.
+- **Pruning** (`SquaredEuclidean(prune=True)`, `needed_candidates`): a candidate whose half-plane is not a face of the polytope P leaves Y_hat unchanged. First version dropped it for the search *and* its step-ii entry: N 10–25% smaller, but 25–40% more solve_sparse iterations (the step-ii entries let mass move between neighbouring targets and speed up convergence) and twice the shield time. Hence now (fix 2) the redundant candidates are skipped only in the search; step-ii keeps the entries of all candidates, so N and the iterations equal the unpruned run (measured). The remaining saving is search work, which does not pay off yet: shield time +40–45% because the check costs more than the search it saves; it can only pay off once the pruning check itself is vectorised over all x_A (now one small numpy call sequence per x_A, dominated by call overhead). Off by default.
 - Boundary vertices have q <= 0 (P unbounded); this is accepted, as in Schmitzer (Remark 5.6).
 - Later: adaptive 2-ring where 0 < q < q_min, as a comparison.
 
@@ -47,7 +46,8 @@ Why the project looks the way it does. `architecture.md` and the component specs
 - Parallelism: `N_WORKERS` (default 4) for independent experiments and block-wise checks; not inside one solve until profiling shows a need.
 
 ## 8. Where code and docs currently diverge (to resolve)
-- `solve_multiscale` still defaults to the 1-ring (`HX.neighbours[k]`); sector neighbours must be passed via `candidates=`. The step 6 measurements do not clearly favour sectors: 8 sectors give smaller N and Y_hat on uniform and grid points, the 1-ring on clustered and anisotropic points (sectors leave outward sectors empty at cluster boundaries, 1.4–3.6% of vertices with q <= 0 vs. 0.4–0.6%); 6 sectors are the weakest. Default to be decided after the unpruned 1-ring comparison.
+- (Resolved) Default S: the 1-ring (Section 4).
+- Pruning check is not vectorised over x_A (Python call per x_A); needed before search pruning can pay off.
 - `shield` still loops over x_A in Python; only `search_tree` is level-synchronous per x_A.
 - `config.py` / `N_WORKERS` and block-wise `verify.py` are not implemented yet.
 - `experiments/results/warm_start.txt` and `candidate_sets.txt`: the warm-start branch is merged into main; both experiments are being rerun on main with integer masses and warm start.
@@ -57,6 +57,6 @@ Why the project looks the way it does. `architecture.md` and the component specs
 
 ## 9. Open questions
 - (Resolved 2026-10-17) Grid with disc mask, infeasible local problem at n = 4096: float masses with a wide range (cell masses 5e-4 to 30 after scaling) left no workable HiGHS primal tolerance. Fixed by integer mass atoms (Section 8); all masked-grid runs at n = 4096 (seeds 0, 1; mesh and quadtree; cold and warm) now solve, warm and cold with identical cost.
-- Choice between 6 and 8 sectors; whether the 2-ring is needed at all.
+- Whether the adaptive 2-ring helps the 1-ring's low-q vertices.
 - n_dense and length_cap defaults; behaviour at n of about 10^5.
 - MTW: cost-specific psi_hat, and the a priori regularity of t needed for Prop. 5.3.
