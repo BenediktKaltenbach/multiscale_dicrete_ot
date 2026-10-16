@@ -26,14 +26,40 @@ def search_tree(xA, xs, ys, Yh, k, cost, tolerance):
     return cells
 
 
+def _ranges(starts, lengths):
+    """Concatenation of the index ranges [start, start + length)."""
+    return np.repeat(starts - np.cumsum(lengths) + lengths, lengths) + np.arange(lengths.sum())
+
+
 def _expand(index_pointer, indices, cells):
-    starts, lengths = index_pointer[cells], np.diff(index_pointer)[cells]
-    offsets = np.repeat(starts - np.cumsum(lengths) + lengths, lengths) + np.arange(lengths.sum())
-    return indices[offsets]
+    return indices[_ranges(index_pointer[cells], np.diff(index_pointer)[cells])]
+
+
+def search_all(X, S, ys, Yh, k, cost, tolerance):
+    """Alg. 5.2 for all x_A at once, level by level. S is CSR (index_pointer, indices) of candidates x_s on X,
+    ys their partners t(x_s) in the same order. Returns the pairs (x_A, missed cell of Y_k)."""
+    index_pointer, indices = S
+    counts = np.diff(index_pointer)
+    owner = np.repeat(np.arange(len(X)), counts)
+    psi_s = cost.psi(X[owner], X[indices], ys)
+    pair_x, pair_cell = np.arange(len(X)), np.zeros(len(X), dtype=np.int64)
+    for level in range(Yh.K, k - 1, -1):
+        pair_of = np.repeat(np.arange(len(pair_x)), counts[pair_x])
+        entry = _ranges(index_pointer[pair_x], counts[pair_x])
+        cell = pair_cell[pair_of]
+        rad = Yh.rad[level][cell] if level > k else 0.0
+        psi_hat = cost.psi_hat(X[owner[entry]], X[indices[entry]], Yh.rep_points(level)[cell], rad)
+        shielded = np.bincount(pair_of[psi_hat > psi_s[entry] + tolerance], minlength=len(pair_x)) > 0
+        pair_x, pair_cell = pair_x[~shielded], pair_cell[~shielded]
+        if level > k:
+            children_pointer, children = Yh.children(level)
+            pair_x = np.repeat(pair_x, np.diff(children_pointer)[pair_cell])
+            pair_cell = _expand(children_pointer, children, pair_cell)
+    return pair_x, pair_cell
 
 
 def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
-    """Alg. 5.1 at scale k. pi is COO; all stored entries count as spt pi.
+    """Alg. 5.1 at scale k, vectorised over all x_A. pi is COO; all stored entries count as spt pi.
 
     X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k. If the cost provides
     needed_candidates, redundant candidates are skipped in the search (step-iii, Y_hat unchanged); step-ii
@@ -42,16 +68,17 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
     t = extract_map(pi)
     Y = Yh.rep_points(k)
     index_pointer, indices = S
-    prune = getattr(cost, "needed_candidates", None)
-    rows, columns = [pi.row], [pi.col]
-    for a in range(len(X)):
-        candidates = indices[index_pointer[a]:index_pointer[a + 1]]
-        needed = candidates if prune is None else candidates[prune(X[a], X[candidates], Y[t[candidates]], tolerance)]
-        Y_hat = search_tree(X[a], X[needed], Y[t[needed]], Yh, k, cost, tolerance)
-        new = np.concatenate([t[candidates], Y_hat])
-        rows.append(np.full(len(new), a))
-        columns.append(new)
-    return unique_entries(np.concatenate(rows), np.concatenate(columns), len(Y))
+    owner = np.repeat(np.arange(len(X)), np.diff(index_pointer))
+    search = S
+    prune = getattr(cost, "needed_candidates_all", None)
+    if prune is not None:
+        needed = prune(X, S, Y[t[indices]], tolerance)
+        if not needed.all():
+            search = np.concatenate([[0], np.cumsum(np.bincount(owner[needed], minlength=len(X)))]), indices[needed]
+    missed_x, missed_y = search_all(X, search, Y[t[search[1]]], Yh, k, cost, tolerance)
+    rows = np.concatenate([pi.row, owner, missed_x])
+    columns = np.concatenate([pi.col, t[indices], missed_y])
+    return unique_entries(rows, columns, len(Y))
 
 
 def unique_entries(rows, columns, n):

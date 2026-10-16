@@ -7,7 +7,7 @@ from msot.hierarchy import build_pair
 from msot.mesh import one_ring, sector_neighbours
 from msot.multiscale import solve_sparse
 from msot.problems import make_problem
-from msot.shielding import extract_map, missed_brute, search_tree
+from msot.shielding import extract_map, missed_brute, search_tree, shield, unique_entries
 from msot.solvers.highs import Highs
 from msot.solvers.scipy_highs import solve_dense
 from msot.verify import dual_violation, is_shielding
@@ -59,6 +59,33 @@ class TestPruning(unittest.TestCase):
                     np.testing.assert_array_equal(
                         np.sort(search_tree(X[a], X[needed], Y[t[needed]], HY, 0, cost, 1e-12)),
                         np.sort(search_tree(X[a], X[candidates], Y[t[candidates]], HY, 0, cost, 1e-12)))
+
+
+class TestVectorisedShield(unittest.TestCase):
+    def test_equals_loop(self):
+        solver = Highs()
+        for kind in ["uniform", "clustered"]:
+            X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
+            HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
+            for k in (0, 1):
+                Xk, Yk = HX.rep_points(k), HY.rep_points(k)
+                N1 = north_west_corner(HX.mass[k], HY.mass[k], np.argsort(Xk[:, 0]), np.argsort(Yk[:, 1]))
+                pi = solver.solve_local(*N1, SquaredEuclidean().c(Xk[N1[0]], Yk[N1[1]]), HX.mass[k], HY.mass[k])[0]
+                t = extract_map(pi)
+                for prune in (False, True):
+                    cost = SquaredEuclidean(prune=prune)
+                    index_pointer, indices = HX.neighbours[k]
+                    rows, columns = [pi.row], [pi.col]
+                    for a in range(len(Xk)):
+                        candidates = indices[index_pointer[a]:index_pointer[a + 1]]
+                        needed = candidates[cost.needed_candidates(Xk[a], Xk[candidates], Yk[t[candidates]], 1e-12)]
+                        new = np.concatenate([t[candidates], search_tree(Xk[a], Xk[needed], Yk[t[needed]], HY, k, cost, 1e-12)])
+                        rows.append(np.full(len(new), a))
+                        columns.append(new)
+                    expected = unique_entries(np.concatenate(rows), np.concatenate(columns), len(Yk))
+                    result = shield(pi, HX.neighbours[k], Xk, HY, k, cost)
+                    np.testing.assert_array_equal(result[0], expected[0])
+                    np.testing.assert_array_equal(result[1], expected[1])
 
 
 class TestSolveSparse(unittest.TestCase):
