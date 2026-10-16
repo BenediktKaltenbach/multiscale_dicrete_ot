@@ -15,7 +15,7 @@ Sparse multiscale discrete OT with shielding neighbourhoods (Schmitzer 2016) on 
 | `mesh.py` | Delaunay mesh per level, 1-ring adjacency, cone constant q (5.6) per vertex |
 | `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3); `SquaredEuclidean` uses (5.7). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
 | `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1), `search_tree` (Alg. 5.2, level-synchronous) |
-| `solvers/` | `base.py` interface, `pot_dense.py`, `highs.py`, later `cplex.py` |
+| `solvers/` | `base.py` interface, `highs.py` (highspy, default), `scipy_highs.py` (linprog, positive support only), later `pot_dense.py`, `cplex.py` |
 | `multiscale.py` | `solve_sparse` (Alg. 4.1), `solve_multiscale` (Alg. 4.6) |
 | `verify.py` | global dual feasibility alpha(x) + beta(y) <= c(x, y) on X x Y; brute-force check of Def. 3.5 for small problems |
 | `problems.py` | reproducible test problems (X, mu, Y, nu), see `docs/problems.md` |
@@ -32,12 +32,11 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 ## Interfaces
 - `solve_local(rows, columns, c, mu, nu, state=None) -> (pi, alpha, beta, state)`. Here (rows, columns) are the entries of N and c their costs, pi is a scipy COO matrix, and state is opaque, backend-specific warm-start data.
 - `shield(pi, S, X, Yh, k, cost, tolerance) -> (rows, columns)`, X the points of X_k.
-
 ## Invariants and tolerances
 - Def. 4.3: the coarsest level is a single cell, and X and Y have the same depth K (pad with copy levels if needed).
 - (4.1): |rep(x) - x| <= rad(x) for all leaves x of a cell; rad is computed over the leaves.
 - rep is an existing point: the child rep closest to the cell's mass centroid. This keeps reps nested and always inside the domain (needed for MTW costs, which are only defined on Omega x Lambda).
-- Shielded only if psi_hat > psi(y_s) + tol. spt pi = {pi > tol}. Alg. 4.1 stops when N no longer grows (or on a relative cost tolerance).
+- Shielded only if psi_hat > psi(y_s) + tol. spt pi = all basic entries of the local solution, including degenerate zeros (they satisfy (2.4)); this keeps spt pi a spanning tree, so refined N1 stay feasible in floating point. Alg. 4.1 stops when N no longer grows (or on a relative cost tolerance).
 - mu and nu are normalised to exactly equal total mass.
 - The same Y hierarchy is used for multiscale solving and for search_tree: at scale k the leaves of the search are the cells of Y_k.
 
@@ -48,7 +47,8 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 
 ## Solver notes
 - POT `ot.emd`: dense reference (network simplex, floats).
-- HiGHS (`highspy`): one persistent model per `solve_sparse`; new entries of N are added as columns (`addCols`), then primal simplex continues from the old basis. Delete only nonbasic columns.
+- HiGHS (`highspy`, now): solved from scratch per call, marginals scaled to mean mass 1 (HiGHS tolerances are absolute), primal tolerance 1e-10 because negative basic values are clipped and a refined N1 inherits the error, dual tolerance 1e-9.
+- HiGHS (`highspy`, step 7): one persistent model per `solve_sparse`; new entries of N are added as columns (`addCols`), then primal simplex continues from the old basis. Delete only nonbasic columns.
 
 ## Order of implementation (open for discussion)
 1. Point clouds, Delaunay, S, dense POT reference, dual-feasibility check.

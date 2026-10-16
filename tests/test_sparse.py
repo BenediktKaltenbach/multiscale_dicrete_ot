@@ -5,16 +5,28 @@ import numpy as np
 from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.mesh import one_ring
-from msot.multiscale import north_west_corner, solve_sparse
+from msot.multiscale import solve_sparse
 from msot.problems import make_problem
 from msot.shielding import extract_map, missed_brute, search_tree
-from msot.solvers.scipy_highs import ScipyHighs, solve_dense
+from msot.solvers.highs import Highs
+from msot.solvers.scipy_highs import solve_dense
 from msot.verify import dual_violation, is_shielding
+
+
+def north_west_corner(mu, nu, order_x, order_y):
+    """Feasible initial N1 with at most |X| + |Y| - 1 entries: north-west corner rule along the given orderings."""
+    cumulative_x, cumulative_y = np.cumsum(mu[order_x]), np.cumsum(nu[order_y])
+    breaks = np.unique(np.concatenate([cumulative_x, cumulative_y]))[:-1]
+    i = np.minimum(np.searchsorted(cumulative_x, breaks, side="right"), len(mu) - 1)
+    j = np.minimum(np.searchsorted(cumulative_y, breaks, side="right"), len(nu) - 1)
+    rows = np.concatenate([[order_x[0]], order_x[i]])
+    columns = np.concatenate([[order_y[0]], order_y[j]])
+    return rows, columns
 
 
 class TestSearchTree(unittest.TestCase):
     def test_matches_brute_force(self):
-        cost, solver = SquaredEuclidean(), ScipyHighs()
+        cost, solver = SquaredEuclidean(), Highs()
         for kind in ["uniform", "clustered", "grid"]:
             X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
             HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
@@ -34,7 +46,7 @@ class TestSearchTree(unittest.TestCase):
 class TestSolveSparse(unittest.TestCase):
     def check(self, n, kind, seed, mask=None):
         X, mu, Y, nu = make_problem(n, kind, np.random.default_rng(seed), mask=mask)
-        cost, solver = SquaredEuclidean(), ScipyHighs()
+        cost, solver = SquaredEuclidean(), Highs()
         _, HY = build_pair(X, mu, Y, nu, n_dense=8)
         pi_dense, _, _, _ = solve_dense(X, Y, mu, nu, cost)
         C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])

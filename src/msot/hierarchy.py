@@ -123,3 +123,28 @@ def build_pair(X, mu, Y, nu, n_dense=256):
     _add_top(HX)
     _add_top(HY)
     return HX, HY
+
+
+def quadtree(points, mass, K, corner, side):
+    """Def. 4.4 with K levels over the square [corner, corner + side]; reps are existing points as in agglomerate."""
+    H = _level_zero(points, mass)
+    finest = 2 ** (K - 1)
+    cube = np.clip(np.floor((points - corner) / side * finest).astype(np.int64), 0, finest - 1)
+    for k in range(1, K + 1):
+        cube_k = cube >> (k - 1)
+        label = np.unique(cube_k[:, 0] * finest + cube_k[:, 1], return_inverse=True)[1]
+        parent = np.empty(H.number_of_cells(k - 1), dtype=np.int64)
+        parent[H.cell_of[k - 1]] = label
+        _add_level(H, parent)
+    return H
+
+
+def build_pair_quadtree(X, mu, Y, nu):
+    """Quadtrees over one common square, with the smallest K such that the finest cubes hold about 4 points."""
+    both = np.vstack([X, Y])
+    corner = both.min(axis=0)
+    side = max((both.max(axis=0) - corner).max(), np.finfo(float).tiny)
+    K = 1
+    while max(len(X), len(Y)) > 4 ** K:
+        K += 1
+    return quadtree(X, mu, K, corner, side), quadtree(Y, nu, K, corner, side)

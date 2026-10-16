@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from msot.hierarchy import agglomerate, build_pair
+from msot.hierarchy import agglomerate, build_pair, build_pair_quadtree
 from msot.problems import make_problem
 
 
@@ -34,6 +34,18 @@ class TestHierarchy(unittest.TestCase):
         self.assertEqual(HX.K, HY.K)
         self.check_invariants(HX)
         self.check_invariants(HY)
+
+    def test_quadtree(self):
+        for kind in ["uniform", "clustered", "grid"]:
+            X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
+            HX, HY = build_pair_quadtree(X, mu, Y, nu)
+            self.assertEqual(HX.K, HY.K)
+            self.assertEqual(HX.K, 5)
+            for H in (HX, HY):
+                self.check_invariants(H)
+                side = np.ptp(np.vstack([X, Y]), axis=0).max()
+                for k in range(1, H.K + 1):
+                    self.assertTrue((H.rad[k] <= np.sqrt(2) * side * 2.0 ** (k - H.K) + 1e-12).all())
 
     def test_about_four_children(self):
         points = np.random.default_rng(2).random((2000, 2))

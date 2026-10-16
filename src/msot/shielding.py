@@ -33,12 +33,14 @@ def _expand(index_pointer, indices, cells):
 
 
 def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
-    """Alg. 5.1 at scale k. X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k."""
+    """Alg. 5.1 at scale k. pi is COO; all stored entries count as spt pi.
+
+    X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k.
+    """
     t = extract_map(pi)
     Y = Yh.rep_points(k)
     index_pointer, indices = S
-    support_rows, support_columns = pi.tocsr().nonzero()
-    rows, columns = [support_rows], [support_columns]
+    rows, columns = [pi.row], [pi.col]
     for a in range(len(X)):
         candidates = indices[index_pointer[a]:index_pointer[a + 1]]
         Y_hat = search_tree(X[a], X[candidates], Y[t[candidates]], Yh, k, cost, tolerance)

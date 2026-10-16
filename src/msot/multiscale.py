@@ -6,17 +6,6 @@ from scipy.sparse import coo_matrix
 from .shielding import shield
 
 
-def north_west_corner(mu, nu, order_x, order_y):
-    """Feasible initial N1 with |X| + |Y| - 1 entries: NW corner rule along the given orderings."""
-    cumulative_x, cumulative_y = np.cumsum(mu[order_x]), np.cumsum(nu[order_y])
-    breaks = np.unique(np.concatenate([cumulative_x, cumulative_y]))[:-1]
-    i = np.minimum(np.searchsorted(cumulative_x, breaks, side="right"), len(mu) - 1)
-    j = np.minimum(np.searchsorted(cumulative_y, breaks, side="right"), len(nu) - 1)
-    rows = np.concatenate([[order_x[0]], order_x[i]])
-    columns = np.concatenate([[order_y[0]], order_y[j]])
-    return rows, columns
-
-
 def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tolerance=1e-12, max_iterations=100):
     """Alg. 4.1 at scale k, X the points of X_k. Stops when N no longer grows or C(pi) no longer decreases."""
     Y, nu = Yh.rep_points(k), Yh.mass[k]
