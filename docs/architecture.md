@@ -37,7 +37,7 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 - (4.1): |rep(x) - x| <= rad(x) for all leaves x of a cell; rad is computed over the leaves.
 - rep is an existing point: the child rep closest to the cell's mass centroid. This keeps reps nested and always inside the domain (needed for MTW costs, which are only defined on Omega x Lambda).
 - Shielded only if psi_hat > psi(y_s) + tol. spt pi = all basic entries of the local solution, including degenerate zeros (they satisfy (2.4)); this keeps spt pi a spanning tree, so refined N1 stay feasible in floating point. Alg. 4.1 stops when N no longer grows (or on a relative cost tolerance).
-- mu and nu are normalised to exactly equal total mass.
+- mu and nu are integer mass atoms with exactly equal totals (default 10^9, `problems.make_problem`); float masses normalised to equal totals still work, but HiGHS then only meets the marginals up to its tolerance.
 - The same Y hierarchy is used for multiscale solving and for search_tree: at scale k the leaves of the search are the cells of Y_k.
 
 ## Map t and candidate sets
@@ -49,8 +49,8 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 
 ## Solver notes
 - POT `ot.emd`: dense reference (network simplex, floats).
-- HiGHS (`highspy`, now): solved from scratch per call, marginals scaled to mean mass 1 (HiGHS tolerances are absolute), primal tolerance 1e-10 because negative basic values are clipped and a refined N1 inherits the error, dual tolerance 1e-9.
-- HiGHS (`highspy`, step 7): one persistent model per `solve_sparse`; new entries of N are added as columns (`addCols`), then primal simplex continues from the old basis. Delete only nonbasic columns.
+- HiGHS (`highspy`, `solvers/highs.py`): integer masses are solved exactly. The transport matrix is totally unimodular, so every basic solution is integral; HiGHS values are rounded to integers (primal tolerance 1e-3 atoms) and the marginals are checked exactly. Refined N1 are then exactly feasible on every level. Float masses: scaled to mean mass 1 (HiGHS tolerances are absolute), primal tolerance 1e-10, since clipped negative basic values carry over to a refined N1; this failed on masked grids at n = 4096, hence the atoms. Dual tolerance 1e-9 in both cases.
+- Warm start (step 7, `Highs(warm_start=True)`, default): one persistent model per `solve_sparse`; new entries of N are added as columns (`addCols`), only nonbasic columns outside N are deleted, then the primal simplex continues from the old basis. About 10x fewer simplex iterations, solve time at n = 4096 from 68-128 s to about 6-7 s. The first solve of each level is cold (dual simplex).
 
 ## Order of implementation (open for discussion)
 1. Point clouds, Delaunay, S, dense POT reference, dual-feasibility check.

@@ -13,7 +13,7 @@ from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.mesh import candidate_statistics, sector_neighbours
 from msot.multiscale import solve_multiscale
-from msot.problems import gaussian_masses, make_problem, sample_points
+from msot.problems import gaussian_masses, make_problem, quantize, sample_points
 from msot.shielding import extract_map, search_tree
 from msot.solvers.highs import Highs
 
@@ -30,12 +30,7 @@ VARIANTS = {
 def anisotropic_problem(n, rng):
     X = sample_points(n, "uniform", rng) * [1.0, 0.1]
     Y = sample_points(n, "uniform", rng) * [1.0, 0.1]
-    mu, nu = gaussian_masses(X, rng), gaussian_masses(Y, rng)
-    mu /= mu.sum()
-    nu /= nu.sum()
-    for _ in range(10):
-        nu[np.argmax(nu)] += mu.sum() - nu.sum()
-    return X, mu, Y, nu
+    return X, quantize(gaussian_masses(X, rng), 10**9), Y, quantize(gaussian_masses(Y, rng), 10**9)
 
 
 def problems(n):
@@ -65,7 +60,8 @@ def per_vertex(X, Y, pi, S, HY, cost):
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 4096
     RESULTS.mkdir(exist_ok=True)
-    report = [f"n = {n}, mesh hierarchy (build_pair defaults), spacing = distance to the nearest other point of X",
+    report = [f"n = {n}, mesh hierarchy (build_pair defaults), integer masses (10^9 atoms), Highs with warm start, "
+              "spacing = distance to the nearest other point of X",
               "S statistics at level 0; |Y_hat|, needed candidates and L at the final coupling; times summed over all levels", ""]
     columns = ["|S|", "needed", "q median", "q 5%", "q<=0 %", "D/sp med", "D/sp 99%", "D/sp max",
                "|Y_hat| mean", "|Y_hat| 99%", "it. k=0", "it. total", "|N|/n", "solve s", "shield s", "rel. cost"]

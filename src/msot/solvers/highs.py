@@ -9,9 +9,13 @@ class Highs(LocalSolver):
     """HiGHS simplex via highspy.
 
     pi holds every basic entry, including degenerate zeros, so its support is connected like a network simplex
-    basis tree; basic entries satisfy alpha + beta = c (2.4), which is all shielding needs. Marginals are scaled
-    to mean mass 1 because HiGHS tolerances are absolute; the duals are unaffected. The primal tolerance is
-    tight because basic values down to -tolerance are clipped to 0, and a refined N1 inherits that error.
+    basis tree; basic entries satisfy alpha + beta = c (2.4), which is all shielding needs.
+
+    Integer masses (mass atoms, Schmitzer Remark 6.2) are solved exactly: the transport matrix is totally
+    unimodular, so every basic solution is integral, and rounding the HiGHS values recovers it exactly as long as
+    HiGHS is accurate to better than half an atom. Refined N1 are then exactly feasible on every level, and a loose
+    primal tolerance (in atoms) suffices. Float masses are scaled to mean mass 1 because HiGHS tolerances are
+    absolute, with a tight primal tolerance since clipped negative basic values carry over to a refined N1.
 
     With warm_start, state keeps the model and the entry key (row * size_y + column) of each model column. The
     next call adds the new entries of N as columns and deletes only nonbasic columns outside N, so the old basis
@@ -19,35 +23,41 @@ class Highs(LocalSolver):
     which is still shielding, and pi lives on the model's basic columns.
     """
 
-    def __init__(self, primal_tolerance=1e-10, dual_tolerance=1e-9, warm_start=True):
+    def __init__(self, primal_tolerance=1e-10, dual_tolerance=1e-9, atom_tolerance=1e-3, warm_start=True):
         self.options = {"output_flag": False, "solver": "simplex", "simplex_strategy": 1,
                         "primal_feasibility_tolerance": primal_tolerance,
                         "dual_feasibility_tolerance": dual_tolerance}
+        self.atom_tolerance = atom_tolerance
         self.warm_start = warm_start
         self.simplex_iterations = []
 
     def solve_local(self, rows, columns, c, mu, nu, state=None):
         size_x, size_y = len(mu), len(nu)
-        scale = size_x / mu.sum()
+        integral = is_integral(mu) and is_integral(nu)
+        scale = 1.0 if integral else size_x / mu.sum()
         keys = rows.astype(np.int64) * size_y + columns
         if self.warm_start and state is not None and state["shape"] == (size_x, size_y):
-            h = state["highs"]
-            keys = update_columns(h, state["keys"], keys, c, size_x, size_y)
-            h.setOptionValue("simplex_strategy", 4)
+            model = state["highs"]
+            keys = update_columns(model, state["keys"], keys, c, size_x, size_y)
+            model.setOptionValue("simplex_strategy", 4)
         else:
-            h = self.build(rows, columns, c, mu, nu, scale)
-        h.run()
-        if h.getModelStatus() != highspy.HighsModelStatus.kOptimal:
-            raise RuntimeError(h.modelStatusToString(h.getModelStatus()))
-        self.simplex_iterations.append(h.getInfo().simplex_iteration_count)
-        solution, basic = h.getSolution(), basic_columns(h)
-        values = np.maximum(np.asarray(solution.col_value)[basic], 0) / scale
+            model = self.build(rows, columns, c, mu, nu, scale, integral)
+        model.run()
+        if model.getModelStatus() != highspy.HighsModelStatus.kOptimal:
+            raise RuntimeError(model.modelStatusToString(model.getModelStatus()))
+        self.simplex_iterations.append(model.getInfo().simplex_iteration_count)
+        solution, basic = model.getSolution(), basic_columns(model)
+        values = np.asarray(solution.col_value)[basic]
+        values = np.maximum(np.round(values) if integral else values, 0) / scale
         pi = coo_matrix((values, (keys[basic] // size_y, keys[basic] % size_y)), shape=(size_x, size_y))
+        if integral and not (np.array_equal(np.bincount(pi.row, pi.data, size_x), mu)
+                             and np.array_equal(np.bincount(pi.col, pi.data, size_y), nu)):
+            raise RuntimeError("rounded basic solution does not meet the integer marginals")
         duals = np.asarray(solution.row_dual)
-        state = {"highs": h, "keys": keys, "shape": (size_x, size_y)} if self.warm_start else None
+        state = {"highs": model, "keys": keys, "shape": (size_x, size_y)} if self.warm_start else None
         return pi, duals[:size_x], duals[size_x:], state
 
-    def build(self, rows, columns, c, mu, nu, scale):
+    def build(self, rows, columns, c, mu, nu, scale, integral):
         size_x, size_y, size_N = len(mu), len(nu), len(rows)
         lp = highspy.HighsLp()
         lp.num_col_, lp.num_row_ = size_N, size_x + size_y
@@ -58,29 +68,35 @@ class Highs(LocalSolver):
         lp.a_matrix_.start_ = np.arange(0, 2 * size_N + 1, 2, dtype=np.int32)
         lp.a_matrix_.index_ = np.stack([rows, size_x + columns], axis=1).ravel().astype(np.int32)
         lp.a_matrix_.value_ = np.ones(2 * size_N)
-        h = highspy.Highs()
+        model = highspy.Highs()
         for name, value in self.options.items():
-            h.setOptionValue(name, value)
-        h.passModel(lp)
-        return h
+            model.setOptionValue(name, value)
+        if integral:
+            model.setOptionValue("primal_feasibility_tolerance", self.atom_tolerance)
+        model.passModel(lp)
+        return model
 
 
-def basic_columns(h):
-    status = h.getBasis().col_status
-    return np.fromiter((s == highspy.HighsBasisStatus.kBasic for s in status), dtype=bool, count=len(status))
+def is_integral(mass):
+    return bool(np.all(mass == np.round(mass)))
 
 
-def update_columns(h, model_keys, keys, c, size_x, size_y):
+def basic_columns(model):
+    status = model.getBasis().col_status
+    return np.fromiter((value == highspy.HighsBasisStatus.kBasic for value in status), dtype=bool, count=len(status))
+
+
+def update_columns(model, model_keys, keys, c, size_x, size_y):
     """Delete the nonbasic model columns outside N, add the entries of N the model lacks; returns the new keys."""
-    delete = ~basic_columns(h) & ~np.isin(model_keys, keys)
+    delete = ~basic_columns(model) & ~np.isin(model_keys, keys)
     if delete.any():
-        h.deleteCols(int(delete.sum()), np.flatnonzero(delete).astype(np.int32))
+        model.deleteCols(int(delete.sum()), np.flatnonzero(delete).astype(np.int32))
         model_keys = model_keys[~delete]
     new = ~np.isin(keys, model_keys)
     size_new = int(new.sum())
     if size_new:
         rows, columns = keys[new] // size_y, keys[new] % size_y
-        h.addCols(size_new, np.asarray(c, dtype=float)[new], np.zeros(size_new), np.full(size_new, highspy.kHighsInf),
-                  2 * size_new, np.arange(0, 2 * size_new, 2, dtype=np.int32),
-                  np.stack([rows, size_x + columns], axis=1).ravel().astype(np.int32), np.ones(2 * size_new))
+        model.addCols(size_new, np.asarray(c, dtype=float)[new], np.zeros(size_new),
+                      np.full(size_new, highspy.kHighsInf), 2 * size_new, np.arange(0, 2 * size_new, 2, dtype=np.int32),
+                      np.stack([rows, size_x + columns], axis=1).ravel().astype(np.int32), np.ones(2 * size_new))
     return np.concatenate([model_keys, keys[new]])

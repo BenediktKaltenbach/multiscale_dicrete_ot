@@ -51,13 +51,24 @@ def gaussian_masses(points, rng, n_gauss=4, eigenvalue_range=(1.8, 100.0), mask=
     return density + floor * density.mean()
 
 
-def make_problem(n, points_kind, rng, **mass_kwargs):
+def make_problem(n, points_kind, rng, atoms=10**9, **mass_kwargs):
+    """atoms: masses as integer numbers of mass atoms with exactly `atoms` in total (Schmitzer, Remark 6.2);
+    None gives float masses normalised to 1."""
     X = sample_points(n, points_kind, rng)
     Y = sample_points(n, points_kind, rng)
     mu = gaussian_masses(X, rng, **mass_kwargs)
     nu = gaussian_masses(Y, rng, **mass_kwargs)
+    if atoms is not None:
+        return X, quantize(mu, atoms), Y, quantize(nu, atoms)
     mu /= mu.sum()
     nu /= nu.sum()
     for _ in range(10):
         nu[np.argmax(nu)] += mu.sum() - nu.sum()
     return X, mu, Y, nu
+
+
+def quantize(mass, atoms):
+    """Integer numbers of atoms (as floats, exact below 2**53), at least one per point, summing to exactly atoms."""
+    counts = np.maximum(np.round(mass / mass.sum() * atoms), 1)
+    counts[np.argmax(counts)] += atoms - counts.sum()
+    return counts

@@ -16,6 +16,16 @@ class TestProblems(unittest.TestCase):
                     self.assertTrue(((points >= 0) & (points <= 1)).all())
                     self.assertEqual(len(np.unique(points, axis=0)), len(points))
 
+    def test_integer_atoms(self):
+        X, mu, Y, nu = make_problem(500, "clustered", np.random.default_rng(1), mask="disc")
+        for mass in (mu, nu):
+            np.testing.assert_array_equal(mass, np.round(mass))
+            self.assertEqual(mass.sum(), 10**9)
+            self.assertGreaterEqual(mass.min(), 1)
+        X, mu, Y, nu = make_problem(500, "clustered", np.random.default_rng(1), atoms=None)
+        self.assertEqual(mu.sum(), nu.sum())
+        self.assertAlmostEqual(mu.sum(), 1.0, delta=1e-12)
+
     def test_reproducible(self):
         a = make_problem(50, "clustered", np.random.default_rng(3))
         b = make_problem(50, "clustered", np.random.default_rng(3))

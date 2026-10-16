@@ -17,7 +17,7 @@ Point placement and mass distribution are chosen independently, so geometric dif
 - mass(x) = density(x), or density(x) * area(x) with `area_weighted=True` (Voronoi cell area, so that clustered points do not double count the density).
 
 ## Normalisation
-mu and nu are each normalised to total mass 1 (in float64), and nu is rescaled once more by sum(mu) / sum(nu) so the sums agree exactly.
+By default (`atoms=10**9`) mu and nu are integer numbers of mass atoms (Schmitzer, Remark 6.2): each density is rounded to `atoms` atoms in total, at least one per point, and the largest entry absorbs the rounding so both sums are exactly `atoms`. The counts are stored as float64, which is exact below 2^53, so every coarse mass (a sum over children) is an exact integer too. This lets the solver return exactly feasible couplings on every level. With `atoms=None` mu and nu are float masses normalised to total mass 1, and nu is corrected once more so the sums agree exactly.
 
 ## Problem
 `make_problem(n, points_kind, rng, **mass_kwargs) -> (X, mu, Y, nu)`: X and Y are sampled independently with the same settings, |X| = |Y| = n as in Schmitzer. Everything is driven by a `numpy.random.Generator` seed for reproducibility.
