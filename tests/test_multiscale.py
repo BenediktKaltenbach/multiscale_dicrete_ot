@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from msot.cost import SqEuclid
+from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.multiscale import solve_multiscale
 from msot.problems import make_problem
@@ -13,17 +13,17 @@ from msot.verify import dual_violation, is_shielding
 
 class TestSolveMultiscale(unittest.TestCase):
     def check(self, X, mu, Y, nu, n_dense=8):
-        cost, solver = SqEuclid(), ScipyHighs()
+        cost, solver = SquaredEuclidean(), ScipyHighs()
         HX, HY = build_pair(X, mu, Y, nu, n_dense)
         pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver)
-        pi_d = solve_dense(X, Y, mu, nu, cost)[0]
+        pi_dense = solve_dense(X, Y, mu, nu, cost)[0]
         C = pi.data @ cost.c(X[pi.row], Y[pi.col])
-        C_dense = pi_d.data @ cost.c(X[pi_d.row], Y[pi_d.col])
+        C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])
 
         self.assertEqual(len(info), HX.K)
         self.assertAlmostEqual(C, C_dense, delta=1e-9 * C_dense)
         self.assertLess(dual_violation(alpha, beta, X, Y, cost), 1e-9)
-        self.assertTrue(is_shielding(pi, *shield(pi, HX.nbrs[0], X, HY, 0, cost), X, Y, cost))
+        self.assertTrue(is_shielding(pi, *shield(pi, HX.neighbours[0], X, HY, 0, cost), X, Y, cost))
         return info
 
     def test_kinds_and_masks(self):

@@ -8,19 +8,20 @@ from .base import LocalSolver
 class ScipyHighs(LocalSolver):
     """HiGHS dual simplex via scipy.optimize.linprog, solved from scratch each call."""
 
-    def solve_local(self, rows, cols, c, mu, nu, state=None):
-        m, n, nnz = len(mu), len(nu), len(rows)
-        A = csr_matrix((np.ones(2 * nnz), (np.concatenate([rows, m + cols]), np.tile(np.arange(nnz), 2))),
-                       shape=(m + n, nnz))
-        res = linprog(c, A_eq=A, b_eq=np.concatenate([mu, nu]), bounds=(0, None), method="highs-ds")
-        if res.status != 0:
-            raise RuntimeError(res.message)
-        keep = res.x > 0
-        pi = coo_matrix((res.x[keep], (rows[keep], cols[keep])), shape=(m, n))
-        y = res.eqlin.marginals
-        return pi, y[:m], y[m:], None
+    def solve_local(self, rows, columns, c, mu, nu, state=None):
+        size_x, size_y, size_N = len(mu), len(nu), len(rows)
+        constraints = csr_matrix(
+            (np.ones(2 * size_N), (np.concatenate([rows, size_x + columns]), np.tile(np.arange(size_N), 2))),
+            shape=(size_x + size_y, size_N))
+        result = linprog(c, A_eq=constraints, b_eq=np.concatenate([mu, nu]), bounds=(0, None), method="highs-ds")
+        if result.status != 0:
+            raise RuntimeError(result.message)
+        keep = result.x > 0
+        pi = coo_matrix((result.x[keep], (rows[keep], columns[keep])), shape=(size_x, size_y))
+        duals = result.eqlin.marginals
+        return pi, duals[:size_x], duals[size_x:], None
 
 
 def solve_dense(X, Y, mu, nu, cost, solver=None):
-    rows, cols = np.divmod(np.arange(len(X) * len(Y)), len(Y))
-    return (solver or ScipyHighs()).solve_local(rows, cols, cost.c(X[rows], Y[cols]), mu, nu)
+    rows, columns = np.divmod(np.arange(len(X) * len(Y)), len(Y))
+    return (solver or ScipyHighs()).solve_local(rows, columns, cost.c(X[rows], Y[columns]), mu, nu)

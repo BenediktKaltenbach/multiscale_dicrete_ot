@@ -13,7 +13,7 @@ Sparse multiscale discrete OT with shielding neighbourhoods (Schmitzer 2016) on 
 |---|---|
 | `hierarchy.py` | Hierarchical partition: per level k arrays `rep[k]`, `rad[k]`, `parent[k]`, `mass[k]`; `children` derived. Builders: `agglomerate` (mesh hierarchy, option B, first) and `quadtree` (Def. 4.4, option A, baseline) |
 | `mesh.py` | Delaunay mesh per level, 1-ring adjacency, cone constant q (5.6) per vertex |
-| `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3); `SqEuclid` uses (5.7). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
+| `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3); `SquaredEuclidean` uses (5.7). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
 | `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1), `search_tree` (Alg. 5.2, level-synchronous) |
 | `solvers/` | `base.py` interface, `pot_dense.py`, `highs.py`, later `cplex.py` |
 | `multiscale.py` | `solve_sparse` (Alg. 4.1), `solve_multiscale` (Alg. 4.6) |
@@ -30,8 +30,8 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 ```
 
 ## Interfaces
-- `solve_local(rows, cols, cost, mu, nu, state=None) -> (pi, alpha, beta, state)`. Here (rows, cols) are the entries of N, pi is a scipy COO matrix, and state is opaque, backend-specific warm-start data.
-- `shield(pi, S, Yh, k, cost) -> (rows, cols)`.
+- `solve_local(rows, columns, c, mu, nu, state=None) -> (pi, alpha, beta, state)`. Here (rows, columns) are the entries of N and c their costs, pi is a scipy COO matrix, and state is opaque, backend-specific warm-start data.
+- `shield(pi, S, X, Yh, k, cost, tolerance) -> (rows, columns)`, X the points of X_k.
 
 ## Invariants and tolerances
 - Def. 4.3: the coarsest level is a single cell, and X and Y have the same depth K (pad with copy levels if needed).
@@ -67,6 +67,6 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 
 ## MTW readiness
 - Correctness of shield / search_tree holds for any cost; MTW only affects sparsity. The core therefore uses only `c`, `psi`, `psi_hat`.
-- Everything Euclidean-specific (bound (5.7), half-plane fences, polygon geometry) lives in `SqEuclid` or in experiments, never in shielding.py.
+- Everything Euclidean-specific (bound (5.7), half-plane fences, polygon geometry) lives in `SquaredEuclidean` or in experiments, never in shielding.py.
 - MTW costs need their own `psi_hat`; the generic fallback is psi(rep y) - L * rad(y), with L bounding the y-Lipschitz constant of psi on the cell (e.g. via sup |D_xy c| * |x_A - x_s|).
 - The c-exponential (charts) is an optional cost method, used for analysis and plots, not by the solver.

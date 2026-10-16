@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class SqEuclid:
+class SquaredEuclidean:
     def c(self, x, y):
         return np.sum((x - y) ** 2, axis=-1)
 

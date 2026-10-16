@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from msot.cost import SqEuclid
+from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.mesh import one_ring
 from msot.multiscale import north_west_corner, solve_sparse
@@ -14,7 +14,7 @@ from msot.verify import dual_violation, is_shielding
 
 class TestSearchTree(unittest.TestCase):
     def test_matches_brute_force(self):
-        cost, solver = SqEuclid(), ScipyHighs()
+        cost, solver = SquaredEuclidean(), ScipyHighs()
         for kind in ["uniform", "clustered", "grid"]:
             X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
             HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
@@ -23,21 +23,21 @@ class TestSearchTree(unittest.TestCase):
                 N1 = north_west_corner(HX.mass[k], HY.mass[k], np.argsort(Xk[:, 0]), np.argsort(Yk[:, 1]))
                 pi = solver.solve_local(*N1, cost.c(Xk[N1[0]], Yk[N1[1]]), HX.mass[k], HY.mass[k])[0]
                 t = extract_map(pi)
-                indptr, indices = HX.nbrs[k]
+                index_pointer, indices = HX.neighbours[k]
                 for a in range(len(Xk)):
-                    s = indices[indptr[a]:indptr[a + 1]]
-                    args = Xk[a], Xk[s], Yk[t[s]]
-                    np.testing.assert_array_equal(np.sort(search_tree(*args, HY, k, cost, 1e-12)),
-                                                  missed_brute(*args, Yk, cost, 1e-12))
+                    candidates = indices[index_pointer[a]:index_pointer[a + 1]]
+                    triple = Xk[a], Xk[candidates], Yk[t[candidates]]
+                    np.testing.assert_array_equal(np.sort(search_tree(*triple, HY, k, cost, 1e-12)),
+                                                  missed_brute(*triple, Yk, cost, 1e-12))
 
 
 class TestSolveSparse(unittest.TestCase):
     def check(self, n, kind, seed, mask=None):
         X, mu, Y, nu = make_problem(n, kind, np.random.default_rng(seed), mask=mask)
-        cost, solver = SqEuclid(), ScipyHighs()
+        cost, solver = SquaredEuclidean(), ScipyHighs()
         _, HY = build_pair(X, mu, Y, nu, n_dense=8)
-        pi_d, _, _, _ = solve_dense(X, Y, mu, nu, cost)
-        C_dense = pi_d.data @ cost.c(X[pi_d.row], Y[pi_d.col])
+        pi_dense, _, _, _ = solve_dense(X, Y, mu, nu, cost)
+        C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])
 
         N1 = north_west_corner(mu, nu, np.argsort(X[:, 0]), np.argsort(Y[:, 0]))
         pi, alpha, beta, N, history = solve_sparse(X, mu, HY, 0, cost, one_ring(X), N1, solver)

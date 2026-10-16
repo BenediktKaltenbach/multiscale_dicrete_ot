@@ -6,48 +6,48 @@ def extract_map(pi):
     return np.asarray(pi.tocsr().argmax(axis=1)).ravel()
 
 
-def missed_brute(xA, xs, ys, Y, cost, tol):
+def missed_brute(xA, xs, ys, Y, cost, tolerance):
     """step-iii by checking (5.2) for every yB in Y."""
     psi_B = cost.psi(xA, xs[:, None], Y[None])
     psi_s = cost.psi(xA, xs, ys)
-    return np.flatnonzero(~(psi_B > psi_s[:, None] + tol).any(axis=0))
+    return np.flatnonzero(~(psi_B > psi_s[:, None] + tolerance).any(axis=0))
 
 
-def search_tree(xA, xs, ys, Yh, k, cost, tol):
+def search_tree(xA, xs, ys, Yh, k, cost, tolerance):
     """Alg. 5.2, level-synchronous from Y_K down to Y_k. Returns the missed cells of Y_k."""
     psi_s = cost.psi(xA, xs, ys)[:, None]
     cells = np.zeros(1, dtype=np.int64)
-    for l in range(Yh.K, k - 1, -1):
-        rad = Yh.rad[l][cells] if l > k else np.zeros(len(cells))
-        psi_hat = cost.psi_hat(xA, xs[:, None], Yh.rep_points(l)[cells][None], rad[None])
-        cells = cells[~(psi_hat > psi_s + tol).any(axis=0)]
-        if l > k:
-            cells = _expand(*Yh.children(l), cells)
+    for level in range(Yh.K, k - 1, -1):
+        rad = Yh.rad[level][cells] if level > k else np.zeros(len(cells))
+        psi_hat = cost.psi_hat(xA, xs[:, None], Yh.rep_points(level)[cells][None], rad[None])
+        cells = cells[~(psi_hat > psi_s + tolerance).any(axis=0)]
+        if level > k:
+            cells = _expand(*Yh.children(level), cells)
     return cells
 
 
-def _expand(indptr, indices, cells):
-    starts, lens = indptr[cells], np.diff(indptr)[cells]
-    offsets = np.repeat(starts - np.cumsum(lens) + lens, lens) + np.arange(lens.sum())
+def _expand(index_pointer, indices, cells):
+    starts, lengths = index_pointer[cells], np.diff(index_pointer)[cells]
+    offsets = np.repeat(starts - np.cumsum(lengths) + lengths, lengths) + np.arange(lengths.sum())
     return indices[offsets]
 
 
-def shield(pi, S, X, Yh, k, cost, tol=1e-12):
-    """Alg. 5.1 at scale k. X are the points of X_k, S a CSR adjacency (indptr, indices) on X_k."""
+def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
+    """Alg. 5.1 at scale k. X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k."""
     t = extract_map(pi)
     Y = Yh.rep_points(k)
-    indptr, indices = S
-    spt_rows, spt_cols = pi.tocsr().nonzero()
-    rows, cols = [spt_rows], [spt_cols]
+    index_pointer, indices = S
+    support_rows, support_columns = pi.tocsr().nonzero()
+    rows, columns = [support_rows], [support_columns]
     for a in range(len(X)):
-        s = indices[indptr[a]:indptr[a + 1]]
-        Y_hat = search_tree(X[a], X[s], Y[t[s]], Yh, k, cost, tol)
-        new = np.concatenate([t[s], Y_hat])
+        candidates = indices[index_pointer[a]:index_pointer[a + 1]]
+        Y_hat = search_tree(X[a], X[candidates], Y[t[candidates]], Yh, k, cost, tolerance)
+        new = np.concatenate([t[candidates], Y_hat])
         rows.append(np.full(len(new), a))
-        cols.append(new)
-    return unique_entries(np.concatenate(rows), np.concatenate(cols), len(Y))
+        columns.append(new)
+    return unique_entries(np.concatenate(rows), np.concatenate(columns), len(Y))
 
 
-def unique_entries(rows, cols, n):
-    keys = np.unique(rows.astype(np.int64) * n + cols)
+def unique_entries(rows, columns, n):
+    keys = np.unique(rows.astype(np.int64) * n + columns)
     return keys // n, keys % n

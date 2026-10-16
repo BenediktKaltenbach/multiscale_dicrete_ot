@@ -12,9 +12,9 @@ class TestProblems(unittest.TestCase):
                 X, mu, Y, nu = make_problem(100, kind, np.random.default_rng(0), mask=mask)
                 self.assertTrue((mu > 0).all() and (nu > 0).all())
                 self.assertEqual(mu.sum(), nu.sum())
-                for P in (X, Y):
-                    self.assertTrue(((P >= 0) & (P <= 1)).all())
-                    self.assertEqual(len(np.unique(P, axis=0)), len(P))
+                for points in (X, Y):
+                    self.assertTrue(((points >= 0) & (points <= 1)).all())
+                    self.assertEqual(len(np.unique(points, axis=0)), len(points))
 
     def test_reproducible(self):
         a = make_problem(50, "clustered", np.random.default_rng(3))

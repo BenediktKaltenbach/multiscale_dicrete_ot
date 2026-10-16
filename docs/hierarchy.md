@@ -17,7 +17,7 @@ class Hierarchy:
     rad: list[np.ndarray]
     parent: list[np.ndarray]  # parent[k][i] = cell of level k+1 containing cell i of level k
     cell_of: list[np.ndarray] # cell_of[k][j] = cell of level k containing point j
-    nbrs: list[tuple]         # 1-ring of each level as CSR (indptr, indices); None where no mesh is needed
+    neighbours: list[tuple]   # 1-ring of each level as CSR (index_pointer, indices); empty for a single cell
 ```
 `children(k, i)` is derived from `parent[k-1]`. `rep_points(k)` returns `points[rep[k]]`.
 

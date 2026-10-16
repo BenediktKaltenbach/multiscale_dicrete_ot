@@ -5,41 +5,42 @@ def sample_points(n, kind, rng):
     if kind == "uniform":
         return rng.random((n, 2))
     if kind == "grid":
-        m = int(round(np.sqrt(n)))
-        g = (np.arange(m) + 0.5) / m
-        return np.stack(np.meshgrid(g, g), axis=-1).reshape(-1, 2)
+        side = int(round(np.sqrt(n)))
+        coordinates = (np.arange(side) + 0.5) / side
+        return np.stack(np.meshgrid(coordinates, coordinates), axis=-1).reshape(-1, 2)
     if kind == "clustered":
         return _gaussian_mixture(n, rng)
     raise ValueError(kind)
 
 
-def _gaussian_mixture(n, rng, n_clusters=4, std_range=(0.03, 0.15)):
+def _gaussian_mixture(n, rng, n_clusters=4, standard_deviation_range=(0.03, 0.15)):
     centres = rng.uniform(0.15, 0.85, (n_clusters, 2))
-    covs = [_random_cov(rng, np.square(rng.uniform(*std_range, 2))) for _ in range(n_clusters)]
+    covariances = [_random_covariance(rng, np.square(rng.uniform(*standard_deviation_range, 2)))
+                   for _ in range(n_clusters)]
     points = np.empty((0, 2))
     while len(points) < n:
-        k = rng.integers(n_clusters, size=n)
-        z = np.array([rng.multivariate_normal(centres[i], covs[i]) for i in k])
-        z = z[np.all((z >= 0) & (z <= 1), axis=1)]
-        points = np.vstack([points, z])
+        clusters = rng.integers(n_clusters, size=n)
+        samples = np.array([rng.multivariate_normal(centres[i], covariances[i]) for i in clusters])
+        samples = samples[np.all((samples >= 0) & (samples <= 1), axis=1)]
+        points = np.vstack([points, samples])
     return points[:n]
 
 
-def _random_cov(rng, eig):
-    a = rng.uniform(0, np.pi)
-    R = np.array([[np.cos(a), -np.sin(a)], [np.sin(a), np.cos(a)]])
-    return R @ np.diag(eig) @ R.T
+def _random_covariance(rng, eigenvalues):
+    angle = rng.uniform(0, np.pi)
+    rotation = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+    return rotation @ np.diag(eigenvalues) @ rotation.T
 
 
-def gaussian_masses(points, rng, n_gauss=4, eig_range=(1.8, 100.0), mask=None, floor=1e-3):
-    h = 1 / np.sqrt(len(points))
+def gaussian_masses(points, rng, n_gauss=4, eigenvalue_range=(1.8, 100.0), mask=None, floor=1e-3):
+    spacing = 1 / np.sqrt(len(points))
     density = np.zeros(len(points))
     for _ in range(n_gauss):
-        eig = np.exp(rng.uniform(*np.log(eig_range), 2)) * h**2
-        cov = _random_cov(rng, eig)
-        d = points - rng.random(2)
-        quad = np.einsum("ij,jk,ik->i", d, np.linalg.inv(cov), d)
-        density += rng.random() * np.exp(-quad / 2) / (2 * np.pi * np.sqrt(eig.prod()))
+        eigenvalues = np.exp(rng.uniform(*np.log(eigenvalue_range), 2)) * spacing**2
+        covariance = _random_covariance(rng, eigenvalues)
+        offsets = points - rng.random(2)
+        quadratic_form = np.einsum("ij,jk,ik->i", offsets, np.linalg.inv(covariance), offsets)
+        density += rng.random() * np.exp(-quadratic_form / 2) / (2 * np.pi * np.sqrt(eigenvalues.prod()))
     if mask == "halfplane":
         normal = rng.normal(size=2)
         density[(points - rng.random(2)) @ normal > 0] = 0

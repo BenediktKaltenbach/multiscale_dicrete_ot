@@ -9,13 +9,13 @@ from msot.problems import make_problem
 class TestHierarchy(unittest.TestCase):
     def check_invariants(self, H):
         n = len(H.points)
-        self.assertEqual(H.n_cells(H.K), 1)
+        self.assertEqual(H.number_of_cells(H.K), 1)
         for k in range(H.K + 1):
             self.assertEqual(len(H.cell_of[k]), n)
             self.assertAlmostEqual(H.mass[k].sum(), H.mass[0].sum(), delta=1e-14)
-            self.assertTrue((H.cell_of[k][H.rep[k]] == np.arange(H.n_cells(k))).all())
-            dist = np.linalg.norm(H.points - H.points[H.rep[k][H.cell_of[k]]], axis=1)
-            self.assertTrue((dist <= H.rad[k][H.cell_of[k]]).all())
+            self.assertTrue((H.cell_of[k][H.rep[k]] == np.arange(H.number_of_cells(k))).all())
+            distance = np.linalg.norm(H.points - H.points[H.rep[k][H.cell_of[k]]], axis=1)
+            self.assertTrue((distance <= H.rad[k][H.cell_of[k]]).all())
             if k < H.K:
                 np.testing.assert_array_equal(H.parent[k][H.cell_of[k]], H.cell_of[k + 1])
                 self.assertTrue(np.isin(H.rep[k + 1], H.rep[k]).all())
@@ -36,9 +36,9 @@ class TestHierarchy(unittest.TestCase):
         self.check_invariants(HY)
 
     def test_about_four_children(self):
-        P = np.random.default_rng(2).random((2000, 2))
-        H = agglomerate(P, np.ones(2000), n_dense=32)
-        self.assertGreater(H.n_cells(0) / H.n_cells(1), 3)
+        points = np.random.default_rng(2).random((2000, 2))
+        H = agglomerate(points, np.ones(2000), n_dense=32)
+        self.assertGreater(H.number_of_cells(0) / H.number_of_cells(1), 3)
 
 
 if __name__ == "__main__":
