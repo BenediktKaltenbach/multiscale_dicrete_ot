@@ -35,14 +35,15 @@ def _expand(index_pointer, indices, cells):
     return indices[_ranges(index_pointer[cells], np.diff(index_pointer)[cells])]
 
 
-def search_all(X, S, ys, Yh, k, cost, tolerance):
-    """Alg. 5.2 for all x_A at once, level by level. S is CSR (index_pointer, indices) of candidates x_s on X,
-    ys their partners t(x_s) in the same order. Returns the pairs (x_A, missed cell of Y_k)."""
+def search_all(X, S, ys, Yh, k, cost, tolerance, sources=None):
+    """Alg. 5.2 for all x_A in sources (default all of X) at once, level by level. S is CSR (index_pointer, indices)
+    of candidates x_s on X, ys their partners t(x_s) in the same order. Returns the pairs (x_A, missed cell of Y_k)."""
     index_pointer, indices = S
     counts = np.diff(index_pointer)
     owner = np.repeat(np.arange(len(X)), counts)
     psi_s = cost.psi(X[owner], X[indices], ys)
-    pair_x, pair_cell = np.arange(len(X)), np.zeros(len(X), dtype=np.int64)
+    pair_x = np.arange(len(X)) if sources is None else sources
+    pair_cell = np.zeros(len(pair_x), dtype=np.int64)
     for level in range(Yh.K, k - 1, -1):
         pair_of = np.repeat(np.arange(len(pair_x)), counts[pair_x])
         entry = _ranges(index_pointer[pair_x], counts[pair_x])
@@ -58,12 +59,13 @@ def search_all(X, S, ys, Yh, k, cost, tolerance):
     return pair_x, pair_cell
 
 
-def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
+def shield(pi, S, X, Yh, k, cost, tolerance=1e-12, chunk=4096):
     """Alg. 5.1 at scale k, vectorised over all x_A. pi is COO; all stored entries count as spt pi.
 
     X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k. If the cost provides
     needed_candidates, redundant candidates are skipped in the search (step-iii, Y_hat unchanged); step-ii
     still adds (xA, t(xs)) for all candidates, since these entries speed up the convergence of Alg. 4.1.
+    The search runs on chunks of x_A to bound memory (about 75 kB per x_A at peak).
     """
     t = extract_map(pi)
     Y = Yh.rep_points(k)
@@ -75,9 +77,13 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12):
         needed = prune(X, S, Y[t[indices]], tolerance)
         if not needed.all():
             search = np.concatenate([[0], np.cumsum(np.bincount(owner[needed], minlength=len(X)))]), indices[needed]
-    missed_x, missed_y = search_all(X, search, Y[t[search[1]]], Yh, k, cost, tolerance)
-    rows = np.concatenate([pi.row, owner, missed_x])
-    columns = np.concatenate([pi.col, t[indices], missed_y])
+    rows, columns = [pi.row, owner], [pi.col, t[indices]]
+    for start in range(0, len(X), chunk):
+        sources = np.arange(start, min(start + chunk, len(X)))
+        missed_x, missed_y = search_all(X, search, Y[t[search[1]]], Yh, k, cost, tolerance, sources)
+        rows.append(missed_x)
+        columns.append(missed_y)
+    rows, columns = np.concatenate(rows), np.concatenate(columns)
     return unique_entries(rows, columns, len(Y))
 
 

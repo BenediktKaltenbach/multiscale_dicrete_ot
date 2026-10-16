@@ -14,7 +14,7 @@ Sparse multiscale discrete OT with shielding neighbourhoods (Schmitzer 2016) on 
 | `hierarchy.py` | Hierarchical partition: per level k arrays `rep[k]`, `rad[k]`, `parent[k]`, `mass[k]`; `children` derived. Builders: `agglomerate` (mesh hierarchy, option B, first) and `quadtree` (Def. 4.4, option A, baseline) |
 | `mesh.py` | Delaunay mesh per level, 1-ring adjacency, cone constant q (5.6) per vertex |
 | `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3); `SquaredEuclidean` uses (5.7). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
-| `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1), `search_tree` (Alg. 5.2, level-synchronous) |
+| `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1, vectorised over all x_A in chunks of 4096), `search_all` (Alg. 5.2 for many x_A at once, on (x_A, cell) pairs level by level), `search_tree` (Alg. 5.2 for one x_A, reference for tests) |
 | `solvers/` | `base.py` interface, `highs.py` (highspy, default), `scipy_highs.py` (linprog, positive support only), later `pot_dense.py`, `cplex.py` |
 | `multiscale.py` | `solve_sparse` (Alg. 4.1), `solve_multiscale` (Alg. 4.6) |
 | `verify.py` | global dual feasibility alpha(x) + beta(y) <= c(x, y) on X x Y; brute-force check of Def. 3.5 for small problems |

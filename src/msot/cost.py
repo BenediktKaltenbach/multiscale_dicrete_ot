@@ -50,7 +50,7 @@ class SquaredEuclidean:
         normals[row, slot] = xs - xA[row]
         offsets = np.zeros((groups, width))
         offsets[row, slot] = np.einsum("ij,ij->i", xs - xA[row], ys) + tolerance / 2
-        angles = np.full((groups, width), np.inf)
+        angles = np.full((groups, width), 4 * np.pi)
         angles[row, slot] = np.arctan2(normals[row, slot, 1], normals[row, slot, 0])
         angles = np.sort(angles, axis=1)
         gaps = np.where(np.arange(width - 1) < (counts - 1)[:, None], np.diff(angles, axis=1), -np.inf)

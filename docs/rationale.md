@@ -30,7 +30,7 @@ Why the project looks the way it does. `architecture.md` and the component specs
 - Later: adaptive 2-ring where 0 < q < q_min, as a comparison.
 
 ## 5. Shielding search
-- `search_tree` is Alg. 5.2 done level by level with numpy: all cells of a level are tested against all candidates at once, then the surviving cells are expanded. It visits the same cells as the recursive version but avoids millions of Python calls. Measured: 25.7x fewer psi_hat evaluations than brute force (uniform, n = 2000).
+- `search_tree` is Alg. 5.2 done level by level with numpy: all cells of a level are tested against all candidates at once, then the surviving cells are expanded. It visits the same cells as the recursive version but avoids millions of Python calls. Measured: 25.7x fewer psi_hat evaluations than brute force (uniform, n = 2000). Since 2026-10-17 `shield` runs this for all x_A at once (`search_all`, frontier of (x_A, cell) pairs; the pruning check is batched the same way), in chunks of 4096 x_A because the peak memory is about 75 kB per x_A. A test checks that it gives exactly the N of the per-x_A loop. Shield time at n = 4096 dropped from 15–28 s to 6–13 s; with that, search pruning is roughly break-even (between -30% and +25% shield time depending on the point set), so it stays off by default.
 - Strict inequality with tolerance: shielded only if psi_hat > psi(y_s) + tol, so rounding can only enlarge N, never make it wrong. Strictness is needed only for termination of Alg. 3.7 (Remark 3.9); ties occur systematically on grids, essentially never on random points.
 
 ## 6. Solvers
@@ -47,8 +47,7 @@ Why the project looks the way it does. `architecture.md` and the component specs
 
 ## 8. Where code and docs currently diverge (to resolve)
 - (Resolved) Default S: the 1-ring (Section 4).
-- Pruning check is not vectorised over x_A (Python call per x_A); needed before search pruning can pay off.
-- `shield` still loops over x_A in Python; only `search_tree` is level-synchronous per x_A.
+- (Resolved) `shield` and the pruning check are vectorised over x_A (Section 5).
 - `config.py` / `N_WORKERS` and block-wise `verify.py` are not implemented yet.
 - `experiments/results/warm_start.txt` and `candidate_sets.txt`: the warm-start branch is merged into main; both experiments are being rerun on main with integer masses and warm start.
 - **Integer mass atoms vs. Section 6/7:** Section 6 lists "floating point (no integer truncation as LEMON needs, Remark 6.2)" and Section 7 "mu and nu normalised to exactly equal mass". Since 2026-10-17 `make_problem` returns integer mass atoms by default (10^9 in total, `atoms=None` for floats) and `Highs` solves them exactly (basic solutions of the totally unimodular transport LP are integral; HiGHS values are rounded and the marginals checked exactly). The solver itself is still floating point and costs stay floats; only the masses are quantised (relative accuracy about 1e-9, as in Schmitzer's Remark 6.2). Reason: with float masses the refined N1 is only feasible up to the HiGHS primal tolerance, and on the masked grid at n = 4096 no tolerance worked (1e-10 too tight for HiGHS on that mass range, 1e-9 too loose for the refinement). To reconcile in Sections 6 and 7.
