@@ -33,16 +33,6 @@ class TestMesh(unittest.TestCase):
                 expected = {vertex - side, vertex + side, vertex - 1, vertex + 1}
                 self.assertEqual(set(indices[index_pointer[vertex]:index_pointer[vertex + 1]].tolist()), expected)
 
-    def test_sectors_keep_closest(self):
-        points = np.random.default_rng(4).random((500, 2))
-        all_index_pointer, all_indices = sector_neighbours(points, 8)
-        index_pointer, indices = sector_neighbours(points, 8, keep=6)
-        self.assertLessEqual(np.diff(index_pointer).max(), 6)
-        for vertex in range(500):
-            every = all_indices[all_index_pointer[vertex]:all_index_pointer[vertex + 1]]
-            closest = every[np.argsort(np.linalg.norm(points[every] - points[vertex], axis=1))[:6]]
-            self.assertEqual(set(indices[index_pointer[vertex]:index_pointer[vertex + 1]].tolist()), set(closest.tolist()))
-
     def test_sectors_nearest_and_q_floor(self):
         points = np.random.default_rng(3).random((2000, 2))
         for sectors in (6, 8):

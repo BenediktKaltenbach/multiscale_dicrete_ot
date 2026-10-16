@@ -7,11 +7,11 @@ def one_ring(points):
     return index_pointer, indices
 
 
-def sector_neighbours(points, sectors, candidates=32, offset=0.0, keep=None):
+def sector_neighbours(points, sectors, candidates=32, offset=0.0):
     """S(xA): the nearest point in each of `sectors` equal angular sectors, the first starting at angle `offset`.
 
     Only the `candidates` nearest points are searched, so far sectors (at the boundary) stay empty.
-    keep: of these sector neighbours, only the `keep` closest to xA. Returns CSR (index_pointer, indices).
+    Returns CSR (index_pointer, indices).
     """
     n = len(points)
     if n < 2:
@@ -23,11 +23,6 @@ def sector_neighbours(points, sectors, candidates=32, offset=0.0, keep=None):
     keys = np.arange(n)[:, None] * sectors + sector
     _, first = np.unique(keys.ravel(), return_index=True)
     vertex = first // nearest.shape[1]
-    if keep is not None:
-        first = np.sort(first)
-        vertex = first // nearest.shape[1]
-        rank = np.arange(len(first)) - np.searchsorted(vertex, vertex)
-        first, vertex = first[rank < keep], vertex[rank < keep]
     index_pointer = np.concatenate([[0], np.cumsum(np.bincount(vertex, minlength=n))])
     return index_pointer, nearest.ravel()[first]
 
