@@ -26,7 +26,7 @@ Why the project looks the way it does. `architecture.md` and the component specs
 - What matters is the cone constant q from Prop. 5.3 (5.6): the larger the angular gaps between candidate directions, the larger the fence P and Y_hat. The bound gives Y_hat inside a ball of radius about L D / q.
 - **Decision: sector neighbours** (`mesh.sector_neighbours`, 6 or 8 equal angular sectors, the nearest point per sector among the 32 nearest). Filled sectors guarantee q >= cos(2 pi / sectors) for interior vertices.
 - Why not the plain Delaunay 1-ring: interior vertices always have q > 0, but the q tail is low on random points (5% quantile 0.19â€“0.37), and sliver edges at the boundary give D up to 300â€“500 spacings.
-- **Pruning** (`SquaredEuclidean.needed_candidates`): a candidate whose half-plane is not a face of the polytope P leaves Y_hat unchanged and is dropped. This saves search work and the step-ii entry. Euclidean geometry, hence inside the cost class.
+- **Pruning** (`SquaredEuclidean.needed_candidates`): a candidate whose half-plane is not a face of the polytope P leaves Y_hat unchanged and is dropped. This saves search work and the step-ii entry. Euclidean geometry, hence inside the cost class. Measured (n = 4096, warm start, `candidate_sets.txt`): N 10–25% smaller, Y_hat unchanged, but 25–40% more solve_sparse iterations (the dropped step-ii entries help the LP converge) and about twice the shield time, so it is off by default (`SquaredEuclidean(prune=True)`).
 - Boundary vertices have q <= 0 (P unbounded); this is accepted, as in Schmitzer (Remark 5.6).
 - Later: adaptive 2-ring where 0 < q < q_min, as a comparison.
 
@@ -47,7 +47,7 @@ Why the project looks the way it does. `architecture.md` and the component specs
 - Parallelism: `N_WORKERS` (default 4) for independent experiments and block-wise checks; not inside one solve until profiling shows a need.
 
 ## 8. Where code and docs currently diverge (to resolve)
-- `solve_multiscale` still defaults to the 1-ring (`HX.neighbours[k]`); sector neighbours must be passed via `candidates=`. The decision is sector neighbours, so the default should follow.
+- `solve_multiscale` still defaults to the 1-ring (`HX.neighbours[k]`); sector neighbours must be passed via `candidates=`. The step 6 measurements do not clearly favour sectors: 8 sectors give smaller N and Y_hat on uniform and grid points, the 1-ring on clustered and anisotropic points (sectors leave outward sectors empty at cluster boundaries, 1.4–3.6% of vertices with q <= 0 vs. 0.4–0.6%); 6 sectors are the weakest. Default to be decided after the unpruned 1-ring comparison.
 - `shield` still loops over x_A in Python; only `search_tree` is level-synchronous per x_A.
 - `config.py` / `N_WORKERS` and block-wise `verify.py` are not implemented yet.
 - `experiments/results/warm_start.txt` and `candidate_sets.txt`: the warm-start branch is merged into main; both experiments are being rerun on main with integer masses and warm start.

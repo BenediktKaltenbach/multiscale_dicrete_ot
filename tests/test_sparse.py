@@ -45,7 +45,7 @@ class TestSearchTree(unittest.TestCase):
 
 class TestPruning(unittest.TestCase):
     def test_pruning_keeps_Y_hat(self):
-        cost, solver = SquaredEuclidean(), Highs()
+        cost, solver = SquaredEuclidean(prune=True), Highs()
         for kind in ["uniform", "clustered", "grid"]:
             X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
             _, HY = build_pair(X, mu, Y, nu, n_dense=8)

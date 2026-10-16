@@ -2,7 +2,7 @@ import numpy as np
 
 
 class SquaredEuclidean:
-    def __init__(self, prune=True):
+    def __init__(self, prune=False):
         self.prune = prune
 
     def c(self, x, y):

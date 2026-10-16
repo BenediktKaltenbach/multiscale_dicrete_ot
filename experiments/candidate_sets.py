@@ -20,6 +20,7 @@ from msot.solvers.highs import Highs
 RESULTS = Path(__file__).parent / "results"
 TOLERANCE = 1e-12
 VARIANTS = {
+    "1-ring, unpruned": (None, False),
     "1-ring, pruned": (None, True),
     "6 sectors, pruned": (6, True),
     "8 sectors, pruned": (8, True),
