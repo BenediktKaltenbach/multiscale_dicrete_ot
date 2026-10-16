@@ -4,7 +4,7 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 from msot.cost import SquaredEuclidean
-from msot.mesh import cone_q, one_ring
+from msot.mesh import cone_q, one_ring, sector_neighbours
 
 
 class TestMesh(unittest.TestCase):
@@ -21,6 +21,33 @@ class TestMesh(unittest.TestCase):
         hull[ConvexHull(points).vertices] = True
         self.assertTrue((q[hull] <= 1e-12).all())
         self.assertTrue((q[~hull] > 0).all())
+
+    def test_sectors_on_grid_give_four_neighbourhood(self):
+        side = 10
+        coordinates = np.arange(side, dtype=float)
+        points = np.stack(np.meshgrid(coordinates, coordinates, indexing="ij"), axis=-1).reshape(-1, 2)
+        index_pointer, indices = sector_neighbours(points, 4, offset=-np.pi / 4)
+        for i in range(1, side - 1):
+            for j in range(1, side - 1):
+                vertex = i * side + j
+                expected = {vertex - side, vertex + side, vertex - 1, vertex + 1}
+                self.assertEqual(set(indices[index_pointer[vertex]:index_pointer[vertex + 1]].tolist()), expected)
+
+    def test_sectors_nearest_and_q_floor(self):
+        points = np.random.default_rng(3).random((2000, 2))
+        for sectors in (6, 8):
+            index_pointer, indices = sector_neighbours(points, sectors)
+            counts = np.diff(index_pointer)
+            self.assertLessEqual(counts.max(), sectors)
+            q = cone_q(points, (index_pointer, indices))
+            self.assertTrue((q[counts == sectors] >= np.cos(2 * np.pi / sectors) - 1e-12).all())
+            for vertex in range(0, 2000, 97):
+                others = np.argsort(np.linalg.norm(points - points[vertex], axis=1))[1:33]
+                directions = points[others] - points[vertex]
+                sector = (np.mod(np.arctan2(directions[:, 1], directions[:, 0]), 2 * np.pi) // (2 * np.pi / sectors)).astype(int)
+                distance = np.linalg.norm(directions, axis=1)
+                expected = {others[sector == s][np.argmin(distance[sector == s])] for s in np.unique(sector)}
+                self.assertEqual(set(indices[index_pointer[vertex]:index_pointer[vertex + 1]].tolist()), expected)
 
 
 class TestSquaredEuclidean(unittest.TestCase):

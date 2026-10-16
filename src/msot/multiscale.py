@@ -41,14 +41,18 @@ def refine(pi, HX, HY, k):
     return rows, columns
 
 
-def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100):
-    """Alg. 4.6, starting from the trivial problem at level K."""
+def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, candidates=None):
+    """Alg. 4.6, starting from the trivial problem at level K.
+
+    candidates(HX, k) gives S on X_k; by default the 1-ring of the level's mesh, HX.neighbours[k].
+    """
     K = HX.K
     pi = coo_matrix((HX.mass[K], ([0], [0])), shape=(1, 1))
     info = []
     for k in range(K - 1, -1, -1):
         N1 = refine(pi, HX, HY, k)
-        pi, alpha, beta, N, history = solve_sparse(HX.rep_points(k), HX.mass[k], HY, k, cost, HX.neighbours[k], N1,
+        S = candidates(HX, k) if candidates else HX.neighbours[k]
+        pi, alpha, beta, N, history = solve_sparse(HX.rep_points(k), HX.mass[k], HY, k, cost, S, N1,
                                                    solver, tolerance, max_iterations)
         info.append({"k": k, "cells": (HX.number_of_cells(k), HY.number_of_cells(k)), "N1": len(N1[0]),
                      "history": history})

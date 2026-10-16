@@ -42,8 +42,10 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 
 ## Map t and candidate sets
 - t(x) = argmax_y pi(x, y).
-- S(x_A): Delaunay 1-ring (baseline) and sector neighbours (nearest point per angular sector, 6 and 8 sectors) as the comparison in step 6. Possible expansion: adaptive 2-ring where 0 < q < q_min (q_min about 0.5). Boundary vertices have q <= 0 (P is unbounded); this is accepted.
-- At coarse levels: the 1-ring of that level's mesh.
+- S(x_A), step 6: sector neighbours, `mesh.sector_neighbours(points, sectors)`: the nearest point in each of 6 or 8 equal angular sectors among the 32 nearest points; interior vertices with all sectors filled have q >= cos(2 pi / sectors). The same construction on the reps of each level; passed to `solve_multiscale(..., candidates=lambda H, k: ...)`.
+- Pruning of redundant candidates (implemented, on by default, `SquaredEuclidean(prune=False)` switches it off): (xs, t(xs)) is dropped when its half-plane (5.5) is not a face of the polytope P (Fig. 3), i.e. tight at fewer than two vertices of P. This leaves Y_hat unchanged, saves search_tree work and drops the step-ii entry (x_A, t(xs)) from N. P changes with t, so `SquaredEuclidean.needed_candidates` is called per x_A in every shield call (2D vertex enumeration of at most |S| lines). Unbounded P (q <= 0, boundary) or empty P (possible for a non-optimal coupling) keeps all candidates. `shield` calls it only if the cost provides it; Euclidean geometry stays in `SquaredEuclidean`.
+- Alternative S, documented for comparison: the Delaunay 1-ring of each level's mesh (`H.neighbours[k]`, still the default of `solve_multiscale`). Interior vertices always have q > 0, but the q tail is low (5% quantile 0.19-0.37 on random points) and boundary sliver edges give D up to 300-500 spacings. Possible expansion: adaptive 2-ring where 0 < q < q_min (q_min about 0.5). Boundary vertices have q <= 0 (P is unbounded); this is accepted.
+- At coarse levels: the same construction on that level's reps (sector neighbours of `H.rep_points(k)`, or the 1-ring of that level's mesh).
 
 ## Solver notes
 - POT `ot.emd`: dense reference (network simplex, floats).
@@ -56,7 +58,7 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 3. Mesh hierarchy (B) + `search_tree`, checked against the brute-force Y_hat.
 4. `solve_multiscale`.
 5. Quadtree (A) as a baseline; compare A vs B.
-6. Variants of S with q/D statistics: 1-ring vs sector neighbours (6, 8); later possibly an adaptive 2-ring.
+6. Variants of S with q/D statistics: sector neighbours (6, 8) with pruning of redundant candidates; 1-ring as the reference; later possibly an adaptive 2-ring.
 7. HiGHS warm start.
 8. MTW costs.
 

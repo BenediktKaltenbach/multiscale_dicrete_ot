@@ -4,6 +4,7 @@ import numpy as np
 
 from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair, build_pair_quadtree
+from msot.mesh import sector_neighbours
 from msot.multiscale import solve_multiscale
 from msot.problems import make_problem
 from msot.shielding import shield
@@ -13,10 +14,10 @@ from msot.verify import dual_violation, is_shielding
 
 
 class TestSolveMultiscale(unittest.TestCase):
-    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False):
+    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None):
         cost, solver = SquaredEuclidean(), Highs()
         HX, HY = build_pair_quadtree(X, mu, Y, nu) if quadtree else build_pair(X, mu, Y, nu, n_dense)
-        pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver)
+        pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=candidates)
         pi_dense = solve_dense(X, Y, mu, nu, cost)[0]
         C = pi.data @ cost.c(X[pi.row], Y[pi.col])
         C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])
@@ -24,7 +25,8 @@ class TestSolveMultiscale(unittest.TestCase):
         self.assertEqual(len(info), HX.K)
         self.assertAlmostEqual(C, C_dense, delta=1e-9 * C_dense)
         self.assertLess(dual_violation(alpha, beta, X, Y, cost), 1e-9)
-        self.assertTrue(is_shielding(pi, *shield(pi, HX.neighbours[0], X, HY, 0, cost), X, Y, cost))
+        S = candidates(HX, 0) if candidates else HX.neighbours[0]
+        self.assertTrue(is_shielding(pi, *shield(pi, S, X, HY, 0, cost), X, Y, cost))
         return info
 
     def test_kinds_and_masks(self):
@@ -38,6 +40,12 @@ class TestSolveMultiscale(unittest.TestCase):
         X, Y = rng.random((30, 2)), rng.random((300, 2))
         mu, nu = np.full(30, 1 / 30), np.full(300, 1 / 300)
         self.check(X, mu, Y, nu * mu.sum() / nu.sum(), n_dense=4)
+
+    def test_sector_neighbours(self):
+        for kind, sectors in [("uniform", 6), ("clustered", 8)]:
+            with self.subTest(kind=kind, sectors=sectors):
+                self.check(*make_problem(400, kind, np.random.default_rng(0)),
+                           candidates=lambda H, k: sector_neighbours(H.rep_points(k), sectors))
 
     def test_quadtree(self):
         for kind in ["clustered", "grid"]:

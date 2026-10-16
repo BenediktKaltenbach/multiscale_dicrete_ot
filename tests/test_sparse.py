@@ -4,7 +4,7 @@ import numpy as np
 
 from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
-from msot.mesh import one_ring
+from msot.mesh import one_ring, sector_neighbours
 from msot.multiscale import solve_sparse
 from msot.problems import make_problem
 from msot.shielding import extract_map, missed_brute, search_tree
@@ -41,6 +41,24 @@ class TestSearchTree(unittest.TestCase):
                     triple = Xk[a], Xk[candidates], Yk[t[candidates]]
                     np.testing.assert_array_equal(np.sort(search_tree(*triple, HY, k, cost, 1e-12)),
                                                   missed_brute(*triple, Yk, cost, 1e-12))
+
+
+class TestPruning(unittest.TestCase):
+    def test_pruning_keeps_Y_hat(self):
+        cost, solver = SquaredEuclidean(), Highs()
+        for kind in ["uniform", "clustered", "grid"]:
+            X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
+            _, HY = build_pair(X, mu, Y, nu, n_dense=8)
+            N1 = north_west_corner(mu, nu, np.argsort(X[:, 0]), np.argsort(Y[:, 1]))
+            t = extract_map(solver.solve_local(*N1, cost.c(X[N1[0]], Y[N1[1]]), mu, nu)[0])
+            for S in (one_ring(X), sector_neighbours(X, 8)):
+                index_pointer, indices = S
+                for a in range(len(X)):
+                    candidates = indices[index_pointer[a]:index_pointer[a + 1]]
+                    needed = candidates[cost.needed_candidates(X[a], X[candidates], Y[t[candidates]], 1e-12)]
+                    np.testing.assert_array_equal(
+                        np.sort(search_tree(X[a], X[needed], Y[t[needed]], HY, 0, cost, 1e-12)),
+                        np.sort(search_tree(X[a], X[candidates], Y[t[candidates]], HY, 0, cost, 1e-12)))
 
 
 class TestSolveSparse(unittest.TestCase):
