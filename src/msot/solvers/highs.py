@@ -17,6 +17,9 @@ class Highs(LocalSolver):
     primal tolerance (in atoms) suffices. Float masses are scaled to mean mass 1 because HiGHS tolerances are
     absolute, with a tight primal tolerance since clipped negative basic values carry over to a refined N1.
 
+    Presolve is off: the transport LP has nothing to remove, and its dependent-equations search (it finds the one
+    redundant marginal row) took 510 s of a 513 s cold solve at n = 16384.
+
     With warm_start, state keeps the model and the entry key (row * size_y + column) of each model column. The
     next call adds the new entries of N as columns and deletes only nonbasic columns outside N, so the old basis
     stays primal feasible and the primal simplex continues from it. The model's columns are then a superset of N,
@@ -24,7 +27,7 @@ class Highs(LocalSolver):
     """
 
     def __init__(self, primal_tolerance=1e-10, dual_tolerance=1e-9, atom_tolerance=1e-3, warm_start=True):
-        self.options = {"output_flag": False, "solver": "simplex", "simplex_strategy": 1,
+        self.options = {"output_flag": False, "solver": "simplex", "simplex_strategy": 1, "presolve": "off",
                         "primal_feasibility_tolerance": primal_tolerance,
                         "dual_feasibility_tolerance": dual_tolerance}
         self.atom_tolerance = atom_tolerance
