@@ -95,7 +95,7 @@ def _add_level(H, parent):
     H.mass.append(mass)
     H.rep.append(rep)
     H.rad.append(rad)
-    H.nbrs.append(_mesh(H.points[rep]) if n > 1 else None)
+    H.nbrs.append(_mesh(H.points[rep]))
 
 
 def _coarsen(H):

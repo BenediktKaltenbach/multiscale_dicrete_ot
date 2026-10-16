@@ -1,4 +1,7 @@
+from time import perf_counter
+
 import numpy as np
+from scipy.sparse import coo_matrix
 
 from .shielding import shield
 
@@ -20,14 +23,41 @@ def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tol=1e-12, max_iter=100):
     rows, cols = N1
     state, C_old, history = None, np.inf, []
     for _ in range(max_iter):
+        t0 = perf_counter()
         c = cost.c(X[rows], Y[cols])
         pi, alpha, beta, state = solver.solve_local(rows, cols, c, mu, nu, state)
-        C = float(pi.data @ cost.c(X[pi.row], Y[pi.col]))
-        history.append({"C": C, "N": len(rows)})
+        t1 = perf_counter()
         new_rows, new_cols = shield(pi, S, X, Yh, k, cost, tol)
+        C = float(pi.data @ cost.c(X[pi.row], Y[pi.col]))
+        history.append({"C": C, "N": len(rows), "t_solve": t1 - t0, "t_shield": perf_counter() - t1})
         old = rows.astype(np.int64) * len(Y) + cols
         new = new_rows.astype(np.int64) * len(Y) + new_cols
         if np.isin(new, old).all() or C >= C_old - tol * abs(C_old):
             return pi, alpha, beta, (new_rows, new_cols), history
         rows, cols, C_old = new_rows, new_cols, C
     raise RuntimeError("solve_sparse did not converge")
+
+
+def refine(pi, HX, HY, k):
+    """N1 at scale k: children(x) x children(y) for all (x, y) in spt pi, pi a coupling at scale k + 1."""
+    ix, cx = HX.children(k + 1)
+    iy, cy = HY.children(k + 1)
+    a, b = pi.row, pi.col
+    la, lb = np.diff(ix)[a], np.diff(iy)[b]
+    count = la * lb
+    e = np.repeat(np.arange(len(a)), count)
+    i = np.arange(count.sum()) - np.repeat(np.cumsum(count) - count, count)
+    return cx[ix[a][e] + i // lb[e]], cy[iy[b][e] + i % lb[e]]
+
+
+def solve_multiscale(HX, HY, cost, solver, tol=1e-12, max_iter=100):
+    """Alg. 4.6, starting from the trivial problem at level K."""
+    K = HX.K
+    pi = coo_matrix((HX.mass[K], ([0], [0])), shape=(1, 1))
+    info = []
+    for k in range(K - 1, -1, -1):
+        N1 = refine(pi, HX, HY, k)
+        pi, alpha, beta, N, history = solve_sparse(HX.rep_points(k), HX.mass[k], HY, k, cost, HX.nbrs[k], N1,
+                                                   solver, tol, max_iter)
+        info.append({"k": k, "cells": (HX.n_cells(k), HY.n_cells(k)), "N1": len(N1[0]), "history": history})
+    return pi, alpha, beta, info
