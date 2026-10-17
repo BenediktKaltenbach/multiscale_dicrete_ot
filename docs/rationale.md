@@ -57,5 +57,8 @@ Why the project looks the way it does. `architecture.md` and the component specs
 ## 9. Open questions
 - (Resolved 2026-10-17) Grid with disc mask, infeasible local problem at n = 4096: float masses with a wide range (cell masses 5e-4 to 30 after scaling) left no workable HiGHS primal tolerance. Fixed by integer mass atoms (Section 8); all masked-grid runs at n = 4096 (seeds 0, 1; mesh and quadtree; cold and warm) now solve, warm and cold with identical cost.
 - Whether the adaptive 2-ring helps the 1-ring's low-q vertices.
-- n_dense and length_cap defaults; behaviour at n of about 10^5.
+- n_dense and length_cap defaults.
+- (Measured 2026-10-17) 256 x 256, all 16 configurations (4 point kinds x mesh/quadtree x 1-ring/8 sectors, `experiments/results/large_65536_summary.txt`): 22–94 min each, identical optimal cost within each kind; level-0 solves are 75–97% of the time, so the inner solver (general LP simplex with LU factorisation instead of Schmitzer's network simplex) is the bottleneck. The quadtree is faster on uniform, clustered and grid points but needs 94 min on anisotropic points (N1 of 79 entries per cell at level 0, unbalanced fan-out); the mesh hierarchy is robust across kinds. Dual check max(alpha + beta - c) <= 1e-9 in 13 of 16 runs, but 1.6e-7 and 1.3e-6 in two anisotropic runs: pairs outside N are certified through short-cut chains (Prop. 3.2), along which the solver's dual tolerance can accumulate; to be stated as "optimal up to accumulated solver tolerance" or tightened.
+- N jumps to 13–16 entries per point after the first coupling of a level on uniform points (final optimum about 8); candidate fix: a two-phase solve_sparse (local iterations with spt + step-ii only, then full shielding).
+- A network-simplex backend (CPLEX network optimizer with basis copy, as Schmitzer) for timings comparable to his.
 - MTW: cost-specific psi_hat, and the a priori regularity of t needed for Prop. 5.3.
