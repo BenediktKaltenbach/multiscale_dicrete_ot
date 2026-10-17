@@ -6,8 +6,11 @@ from scipy.sparse import coo_matrix
 from .shielding import shield
 
 
-def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tolerance=1e-12, max_iterations=100):
-    """Alg. 4.1 at scale k, X the points of X_k. Stops when N no longer grows or C(pi) no longer decreases."""
+def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tolerance=1e-12, max_iterations=100): 
+    """
+    Alg. 4.1 at scale k, X the points of X_k. Stops when N no longer grows or C(pi) no longer decreases.
+    Alternates solving the local problem and shielding until convergence. Returns the coupling pi, dual potentials alpha, beta, the support N, and a history of costs and times.
+    """
     Y, nu = Yh.rep_points(k), Yh.mass[k]
     rows, columns = N1
     state, C_old, history = None, np.inf, []
@@ -28,15 +31,16 @@ def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tolerance=1e-12, max_iterati
 
 
 def refine(pi, HX, HY, k):
-    """N1 at scale k: children(x) x children(y) for all (x, y) in spt pi, pi a coupling at scale k + 1."""
+    """N1 at scale k: return children(x) x children(y) for all (x, y) in spt pi, where pi is a coupling at scale k + 1."""
     index_pointer_x, children_x = HX.children(k + 1)
     index_pointer_y, children_y = HY.children(k + 1)
-    supp_x, supp_y = pi.row, pi.col
-    lengths_x, lengths_y = np.diff(index_pointer_x)[supp_x], np.diff(index_pointer_y)[supp_y]
-    counts = lengths_x * lengths_y
-    entry = np.repeat(np.arange(len(supp_x)), counts)
-    position = np.arange(counts.sum()) - np.repeat(np.cumsum(counts) - counts, counts)
-    rows = children_x[index_pointer_x[supp_x][entry] + position // lengths_y[entry]]
+    supp_x, supp_y = pi.row, pi.col #positions of the support of pi in X_k and Y_k
+    
+    lengths_x, lengths_y = np.diff(index_pointer_x)[supp_x], np.diff(index_pointer_y)[supp_y] #lengths_x[i], lengths_y[i] = |children(xᵢ)|, |children(yᵢ)|
+    counts = lengths_x * lengths_y #counts how many children pairs (x', y') there are for each (x, y) in the support of pi
+    entry = np.repeat(np.arange(len(supp_x)), counts) #x entries repeated according to how many children pairs they have
+    position = np.arange(counts.sum()) - np.repeat(np.cumsum(counts) - counts, counts) #position of each child pair (x', y') in the list of children pairs for its parent (x, y)
+    rows = children_x[index_pointer_x[supp_x][entry] + position // lengths_y[entry]] #unflatten the children pairs (x', y') into a single list of rows and columns
     columns = children_y[index_pointer_y[supp_y][entry] + position % lengths_y[entry]]
     return rows, columns
 
@@ -47,11 +51,11 @@ def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, 
     candidates(HX, k) gives S on X_k; by default the 1-ring of the level's mesh, HX.neighbours[k].
     """
     K = HX.K
-    pi = coo_matrix((HX.mass[K], ([0], [0])), shape=(1, 1))
+    pi = coo_matrix((HX.mass[K], ([0], [0])), shape=(1, 1)) #initial trivial coupling
     info = []
     for k in range(K - 1, -1, -1):
-        N1 = refine(pi, HX, HY, k)
-        S = candidates(HX, k) if candidates else HX.neighbours[k]
+        N1 = refine(pi, HX, HY, k) #N1 is tuple (rows, columns) of indices of the support of pi
+        S = candidates(HX, k) if candidates else HX.neighbours[k] #default is 1-ring, but candidates can be provided, e. g. bracketed candidates
         pi, alpha, beta, N, history = solve_sparse(HX.rep_points(k), HX.mass[k], HY, k, cost, S, N1,
                                                    solver, tolerance, max_iterations)
         info.append({"k": k, "cells": (HX.number_of_cells(k), HY.number_of_cells(k)), "N1": len(N1[0]),
