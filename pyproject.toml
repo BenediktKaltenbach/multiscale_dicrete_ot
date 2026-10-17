@@ -7,11 +7,10 @@ name = "msot"
 version = "0.1.0"
 description = "Sparse multiscale discrete optimal transport with shielding neighbourhoods"
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "highspy"]
+dependencies = ["numpy", "scipy", "cplex", "docplex"]
 
 [project.optional-dependencies]
 reference = ["POT"]
-cplex = ["cplex", "docplex"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

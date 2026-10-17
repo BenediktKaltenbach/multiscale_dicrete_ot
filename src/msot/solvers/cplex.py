@@ -10,9 +10,10 @@ class Cplex(LocalSolver):
 
     Each entry (x, y) of N is an arc x -> y: coefficient +1 in the row of x (= mu(x)) and -1 in the row of y
     (= -nu(y)), a pure network matrix, so CPLEX solves it with its network simplex. alpha = dual of the x rows,
-    beta = -(dual of the y rows). As in Highs, pi holds every basic column including degenerate zeros, integer
-    masses (mass atoms) are rounded to the exact integral basic solution and checked, float masses are scaled
-    to mean mass 1. With warm_start, state keeps the model and the entry key (row * size_y + column) of each
+    beta = -(dual of the y rows). pi holds every basic column including degenerate zeros (they satisfy (2.4) and keep
+    spt pi a spanning tree). Integer masses (mass atoms, Remark 6.2) are solved exactly: basic solutions of the
+    totally unimodular transport LP are integral, so the values are rounded and the marginals checked exactly, and
+    refined N1 stay exactly feasible. Float masses are scaled to mean mass 1 (tolerances are absolute). With warm_start, state keeps the model and the entry key (row * size_y + column) of each
     model column; the next call adds the new entries of N, deletes only nonbasic columns outside N and CPLEX
     continues from the current basis.
     """

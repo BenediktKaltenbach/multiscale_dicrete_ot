@@ -13,7 +13,8 @@ from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair, build_pair_quadtree
 from msot.multiscale import solve_multiscale
 from msot.problems import gaussian_masses, make_problem, sample_points
-from msot.solvers.scipy_highs import ScipyHighs, solve_dense
+from msot.solvers.base import solve_dense
+from msot.solvers.cplex import Cplex
 
 KINDS = ("uniform", "clustered", "anisotropic")
 N_DENSE = 256
@@ -114,7 +115,7 @@ def main():
         plot_compactness(kind, ratios_by_hierarchy, n)
 
     n = 1000
-    cost, solver = SquaredEuclidean(), ScipyHighs()
+    cost, solver = SquaredEuclidean(), Cplex()
     report += [f"Measure 2: N1 = refine output and |N| in solve_multiscale, n = {n}, mesh n_dense = {N_DENSE}, seed 1",
                "|N| last solve = size of the N solved on in the last solve_sparse iteration of that level "
                "(the final shielding N is not returned)", ""]
@@ -122,7 +123,7 @@ def main():
     for kind in KINDS:
         X, mu, Y, nu = problem(n, kind, rng)
         time = perf_counter()
-        pi, *_ = solve_dense(X, Y, mu, nu, cost)
+        pi, *_ = solve_dense(X, Y, mu, nu, cost, Cplex(warm_start=False))
         C_dense = float(pi.data @ cost.c(X[pi.row], Y[pi.col]))
         time_dense = perf_counter() - time
         for name, build in HIERARCHIES.items():

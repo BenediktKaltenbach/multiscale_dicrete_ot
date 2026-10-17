@@ -20,6 +20,7 @@ import msot.multiscale as multiscale
 from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.problems import make_problem
+from msot.solvers.cplex import Cplex
 from msot.shielding import extract_map, shield, unique_entries
 
 RESULTS = Path(__file__).parent / "results"
@@ -29,12 +30,7 @@ final_neighbourhoods = {}
 
 
 def make_solver():
-    try:
-        from msot.solvers.cplex import Cplex
-        return Cplex()
-    except ImportError:
-        from msot.solvers.highs import Highs
-        return Highs()
+    return Cplex()
 
 
 def local_neighbourhood(pi, S, size_y):

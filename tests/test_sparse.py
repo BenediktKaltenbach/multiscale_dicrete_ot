@@ -8,8 +8,8 @@ from msot.mesh import one_ring, sector_neighbours
 from msot.multiscale import solve_sparse
 from msot.problems import make_problem
 from msot.shielding import extract_map, missed_brute, search_tree, shield, unique_entries
-from msot.solvers.highs import Highs
-from msot.solvers.scipy_highs import solve_dense
+from msot.solvers.base import solve_dense
+from msot.solvers.cplex import Cplex
 from msot.verify import dual_violation, is_shielding
 
 
@@ -26,7 +26,7 @@ def north_west_corner(mu, nu, order_x, order_y):
 
 class TestSearchTree(unittest.TestCase):
     def test_matches_brute_force(self):
-        cost, solver = SquaredEuclidean(), Highs()
+        cost, solver = SquaredEuclidean(), Cplex()
         for kind in ["uniform", "clustered", "grid"]:
             X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
             HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
@@ -45,7 +45,7 @@ class TestSearchTree(unittest.TestCase):
 
 class TestPruning(unittest.TestCase):
     def test_pruning_keeps_Y_hat(self):
-        cost, solver = SquaredEuclidean(prune=True), Highs()
+        cost, solver = SquaredEuclidean(prune=True), Cplex()
         for kind in ["uniform", "clustered", "grid"]:
             X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
             _, HY = build_pair(X, mu, Y, nu, n_dense=8)
@@ -63,7 +63,7 @@ class TestPruning(unittest.TestCase):
 
 class TestVectorisedShield(unittest.TestCase):
     def test_equals_loop(self):
-        solver = Highs()
+        solver = Cplex()
         for kind in ["uniform", "clustered"]:
             X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
             HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
@@ -91,9 +91,9 @@ class TestVectorisedShield(unittest.TestCase):
 class TestSolveSparse(unittest.TestCase):
     def check(self, n, kind, seed, mask=None):
         X, mu, Y, nu = make_problem(n, kind, np.random.default_rng(seed), mask=mask)
-        cost, solver = SquaredEuclidean(), Highs()
+        cost, solver = SquaredEuclidean(), Cplex()
         _, HY = build_pair(X, mu, Y, nu, n_dense=8)
-        pi_dense, _, _, _ = solve_dense(X, Y, mu, nu, cost)
+        pi_dense, _, _, _ = solve_dense(X, Y, mu, nu, cost, Cplex(warm_start=False))
         C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])
 
         N1 = north_west_corner(mu, nu, np.argsort(X[:, 0]), np.argsort(Y[:, 0]))

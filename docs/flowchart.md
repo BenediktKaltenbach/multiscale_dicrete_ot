@@ -23,7 +23,7 @@ flowchart TB
     cost["cost.py<br/>SquaredEuclidean: c, psi, psi_hat,<br/>needed_candidates_all"]
     shielding["shielding.py<br/>extract_map, shield, search_all,<br/>search_tree, missed_brute"]
     multiscale["multiscale.py<br/>solve_multiscale, refine, solve_sparse"]
-    solvers["solvers/<br/>base.LocalSolver, highs.Highs,<br/>scipy_highs.ScipyHighs"]
+    solvers["solvers/<br/>base.LocalSolver, base.solve_dense,<br/>cplex.Cplex"]
     verify["verify.py<br/>dual_violation, is_shielding"]
 
     hierarchy --> mesh
@@ -61,14 +61,14 @@ flowchart TB
     F -- no --> H["N = new N"] --> B
 ```
 
-## 5. Highs.solve_local and the warm start
+## 5. Cplex.solve_local and the warm start
 
 ```mermaid
 flowchart TB
     A["masses integral?<br/>yes: scale 1, round values<br/>no: scale to mean mass 1"] --> B{"warm_start and state<br/>of the same shape?"}
-    B -- no --> C["build: new HiGHS model<br/>one column per entry of N<br/>dual simplex"]
+    B -- no --> C["build: new CPLEX model<br/>one arc x -> y per entry of N<br/>network optimizer"]
     B -- yes --> D["update_columns:<br/>delete nonbasic columns outside N,<br/>add the new entries of N as columns"]
-    D --> E["primal simplex from the old basis"]
+    D --> E["continue from the current basis"]
     C --> F["run"]
     E --> F
     F --> G["pi = all basic columns<br/>incl. degenerate zeros"]

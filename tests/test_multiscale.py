@@ -9,17 +9,17 @@ from msot.mesh import sector_neighbours
 from msot.multiscale import dilate, refine, solve_multiscale
 from msot.problems import make_problem
 from msot.shielding import shield
-from msot.solvers.highs import Highs
-from msot.solvers.scipy_highs import solve_dense
+from msot.solvers.base import solve_dense
+from msot.solvers.cplex import Cplex
 from msot.verify import dual_violation, is_shielding
 
 
 class TestSolveMultiscale(unittest.TestCase):
     def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None, dilation=True):
-        cost, solver = SquaredEuclidean(), Highs()
+        cost, solver = SquaredEuclidean(), Cplex()
         HX, HY = build_pair_quadtree(X, mu, Y, nu) if quadtree else build_pair(X, mu, Y, nu, n_dense)
         pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=candidates, dilation=dilation)
-        pi_dense = solve_dense(X, Y, mu, nu, cost)[0]
+        pi_dense = solve_dense(X, Y, mu, nu, cost, Cplex(warm_start=False))[0]
         C = pi.data @ cost.c(X[pi.row], Y[pi.col])
         C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])
 

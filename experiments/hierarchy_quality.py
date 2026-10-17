@@ -9,7 +9,7 @@ from msot.hierarchy import agglomerate, build_pair
 from msot.multiscale import solve_multiscale
 from msot.problems import make_problem, sample_points
 from msot.shielding import shield
-from msot.solvers.highs import Highs
+from msot.solvers.cplex import Cplex
 
 
 class CountingSquaredEuclidean(SquaredEuclidean):
@@ -52,7 +52,7 @@ def main():
     X, mu, Y, nu = make_problem(n, "uniform", np.random.default_rng(1))
     HX, HY = build_pair(X, mu, Y, nu, n_dense=16)
     S = HX.neighbours[0]
-    pi = solve_multiscale(HX, HY, SquaredEuclidean(), Highs())[0]
+    pi = solve_multiscale(HX, HY, SquaredEuclidean(), Cplex())[0]
     cost = CountingSquaredEuclidean()
     rows, _ = shield(pi, S, X, HY, 0, cost)
     brute_force = np.diff(S[0]).sum() * n

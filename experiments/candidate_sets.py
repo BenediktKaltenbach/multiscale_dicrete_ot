@@ -15,7 +15,7 @@ from msot.mesh import candidate_statistics, sector_neighbours
 from msot.multiscale import solve_multiscale
 from msot.problems import gaussian_masses, make_problem, quantize, sample_points
 from msot.shielding import extract_map, search_tree
-from msot.solvers.highs import Highs
+from msot.solvers.cplex import Cplex
 
 RESULTS = Path(__file__).parent / "results"
 TOLERANCE = 1e-12
@@ -60,7 +60,7 @@ def per_vertex(X, Y, pi, S, HY, cost):
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 4096
     RESULTS.mkdir(exist_ok=True)
-    report = [f"n = {n}, mesh hierarchy (build_pair defaults), integer masses (10^9 atoms), Highs with warm start, "
+    report = [f"n = {n}, mesh hierarchy (build_pair defaults), integer masses (10^9 atoms), CPLEX with warm start, "
               "spacing = distance to the nearest other point of X",
               "S statistics at level 0; |Y_hat|, needed candidates and L at the final coupling; times summed over all levels", ""]
     columns = ["|S|", "needed", "q median", "q 5%", "q<=0 %", "D/sp med", "D/sp 99%", "D/sp max",
@@ -74,7 +74,7 @@ def main():
         for axis, (name, (sectors, prune)) in zip(axes, VARIANTS.items()):
             candidates = None if sectors is None else lambda H, k: sector_neighbours(H.rep_points(k), sectors)
             cost = SquaredEuclidean(prune=prune)
-            pi, _, _, info = solve_multiscale(HX, HY, cost, Highs(), candidates=candidates)
+            pi, _, _, info = solve_multiscale(HX, HY, cost, Cplex(), candidates=candidates)
             C = pi.data @ cost.c(X[pi.row], Y[pi.col])
             reference_cost = reference_cost or C
             S = candidates(HX, 0) if candidates else HX.neighbours[0]

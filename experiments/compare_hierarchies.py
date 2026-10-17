@@ -9,7 +9,7 @@ from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair, build_pair_quadtree
 from msot.multiscale import solve_multiscale
 from msot.problems import make_problem
-from msot.solvers.highs import Highs
+from msot.solvers.cplex import Cplex
 
 BUILDERS = {
     "B mesh": lambda X, mu, Y, nu: build_pair(X, mu, Y, nu, n_dense=256),
@@ -21,7 +21,7 @@ def run(X, mu, Y, nu, builder):
     start = perf_counter()
     HX, HY = builder(X, mu, Y, nu)
     built = perf_counter()
-    pi, _, _, info = solve_multiscale(HX, HY, SquaredEuclidean(), Highs())
+    pi, _, _, info = solve_multiscale(HX, HY, SquaredEuclidean(), Cplex())
     histories = [level["history"] for level in info]
     return HX, {
         "C": pi.data @ SquaredEuclidean().c(X[pi.row], Y[pi.col]),

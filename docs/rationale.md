@@ -42,11 +42,12 @@ Why the project looks the way it does. `architecture.md` and the component specs
 - Strict inequality with tolerance: shielded only if psi_hat > psi(y_s) + tol, so rounding can only enlarge N, never make it wrong. Strictness is needed only for termination of Alg. 3.7 (Remark 3.9); ties occur systematically on grids, essentially never on random points.
 
 ## 6. Solvers
-- Requirement: floating point (no integer truncation as LEMON needs, Schmitzer Remark 6.2), simplex only (interior-point solutions are not sparse), Python, open source.
-- **CPLEX** (academic licence) is available as `solvers/cplex.py` with the network optimizer, as in Schmitzer; HiGHS stays the default so that the code runs without a licence. - **HiGHS via highspy** is the default. CPLEX (Schmitzer's network simplex) would likely be faster but needs a licence; LEMON has no maintained Python binding; OR-Tools min-cost flow is integer-only and returns no duals. All can be added behind `LocalSolver` if profiling demands it.
-- **spt pi = all basic entries, including degenerate zeros.** They satisfy alpha + beta = c (2.4), keep spt pi a spanning tree like a network simplex basis, and keep refined N1 feasible in floating point.
-- **Warm start:** one persistent HiGHS model per `solve_sparse`; new entries of N are added as columns, only nonbasic columns outside N are deleted, primal simplex continues from the old basis. Measured: solve time 128 s -> 6.7 s (uniform, n = 4096), same cost to 1e-16.
-- Dense reference: POT `ot.emd` (network simplex). Dense HiGHS takes 250â€“520 s at n = 1000, multiscale 3â€“5 s.
+- Requirement: simplex only (interior-point solutions are not sparse), Python. Originally also floating point and open source (HiGHS); both given up, see below.
+- **CPLEX network optimizer is the only backend** (since 2026-10-17, `solvers/cplex.py`, academic licence). It is Schmitzer's solver (network simplex) and at 128 x 128 about 2.2x faster per solve than HiGHS; HiGHS (`highspy`) was removed to keep the code small. Consequence: the code needs CPLEX Studio (academic) plus `docplex config --upgrade`; the PyPI Community Edition only handles 1000 variables. LEMON has no maintained Python binding; OR-Tools min-cost flow is integer-only and returns no duals.
+- **Integer mass atoms stay** with CPLEX: refining needs the coarse coupling to meet its marginals exactly, which no floating-point LP solver guarantees (CPLEX's feasibility tolerance is 1e-6); with integer masses the basic solutions are exactly integral (total unimodularity), at no extra cost.
+- **spt pi = all basic entries, including degenerate zeros.** They satisfy alpha + beta = c (2.4) and keep spt pi a spanning tree like a network simplex basis.
+- **Warm start:** one persistent model per `solve_sparse`; new entries of N are added as columns, only nonbasic columns outside N are deleted, the solver continues from the old basis. Measured with HiGHS: solve time 128 s -> 6.7 s (uniform, n = 4096), same cost to 1e-16.
+- Dense reference: `solvers.base.solve_dense` with CPLEX (tests); POT `ot.emd` as an independent check. Dense HiGHS took 250–520 s at n = 1000, multiscale 3–5 s.
 
 ## 7. Test problems and setup
 - `problems.py`: points (uniform, clustered, grid, anisotropic) and masses (sums of random Gaussians, optional mask, small constant) are chosen independently, so geometric and mass difficulty vary separately; following Schmitzer Sect. 6.1. mu and nu are normalised to exactly equal mass.
@@ -58,9 +59,9 @@ Why the project looks the way it does. `architecture.md` and the component specs
 - (Resolved) `shield` and the pruning check are vectorised over x_A (Section 5).
 - `config.py` / `N_WORKERS` and block-wise `verify.py` are not implemented yet.
 - `experiments/results/warm_start.txt` and `candidate_sets.txt`: the warm-start branch is merged into main; both experiments are being rerun on main with integer masses and warm start.
-- **Integer mass atoms vs. Section 6/7:** Section 6 lists "floating point (no integer truncation as LEMON needs, Remark 6.2)" and Section 7 "mu and nu normalised to exactly equal mass". Since 2026-10-17 `make_problem` returns integer mass atoms by default (10^9 in total, `atoms=None` for floats) and `Highs` solves them exactly (basic solutions of the totally unimodular transport LP are integral; HiGHS values are rounded and the marginals checked exactly). The solver itself is still floating point and costs stay floats; only the masses are quantised (relative accuracy about 1e-9, as in Schmitzer's Remark 6.2). Reason: with float masses the refined N1 is only feasible up to the HiGHS primal tolerance, and on the masked grid at n = 4096 no tolerance worked (1e-10 too tight for HiGHS on that mass range, 1e-9 too loose for the refinement). To reconcile in Sections 6 and 7.
+- (Resolved 2026-10-17) Integer mass atoms vs. the former floating-point requirement: Section 6 now states that integer mass atoms are used (10^9 in total, Remark 6.2) because refining needs exactly met marginals; solver and costs stay floating point.
 - `docs/hierarchy.md`, "Quality measures", still describes compactness with the global mean spacing.
-- `pot_dense.py` (dense POT reference) is not there yet; dense references currently use HiGHS.
+- `pot_dense.py` (dense POT reference) is not there; dense references use CPLEX via `solve_dense`.
 
 ## 9. Open questions
 - (Resolved 2026-10-17) Grid with disc mask, infeasible local problem at n = 4096: float masses with a wide range (cell masses 5e-4 to 30 after scaling) left no workable HiGHS primal tolerance. Fixed by integer mass atoms (Section 8); all masked-grid runs at n = 4096 (seeds 0, 1; mesh and quadtree; cold and warm) now solve, warm and cold with identical cost.

@@ -15,7 +15,7 @@ Sparse multiscale discrete OT with shielding neighbourhoods (Schmitzer 2016) on 
 | `mesh.py` | Delaunay mesh per level, 1-ring adjacency, cone constant q (5.6) per vertex |
 | `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3); `SquaredEuclidean` uses (5.7). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
 | `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1, vectorised over all x_A in chunks of 4096), `search_all` (Alg. 5.2 for many x_A at once, on (x_A, cell) pairs level by level), `search_tree` (Alg. 5.2 for one x_A, reference for tests) |
-| `solvers/` | `base.py` interface, `highs.py` (highspy, default), `scipy_highs.py` (linprog, positive support only), later `pot_dense.py`, `cplex.py` |
+| `solvers/` | `base.py` interface and `solve_dense` (dense reference with any solver), `cplex.py` (CPLEX network optimizer, the only backend) |
 | `multiscale.py` | `solve_sparse` (Alg. 4.1), `solve_multiscale` (Alg. 4.6, with `dilate` of the initial N1 by default), `refine`, `dilate` |
 | `verify.py` | global dual feasibility alpha(x) + beta(y) <= c(x, y) on X x Y; brute-force check of Def. 3.5 for small problems |
 | `problems.py` | reproducible test problems (X, mu, Y, nu), see `docs/problems.md` |
@@ -51,9 +51,10 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 
 ## Solver notes
 - POT `ot.emd`: dense reference (network simplex, floats).
-- HiGHS (`highspy`, `solvers/highs.py`): integer masses are solved exactly. The transport matrix is totally unimodular, so every basic solution is integral; HiGHS values are rounded to integers (primal tolerance 1e-3 atoms) and the marginals are checked exactly. Refined N1 are then exactly feasible on every level. Float masses: scaled to mean mass 1 (HiGHS tolerances are absolute), primal tolerance 1e-10, since clipped negative basic values carry over to a refined N1; this failed on masked grids at n = 4096, hence the atoms. Dual tolerance 1e-9 in both cases.
-- CPLEX (`solvers/cplex.py`, optional dependency `pip install .[cplex]`, full version via `docplex config --upgrade <CPLEX_Studio path>`): network optimizer (network simplex, as Schmitzer); each entry of N is an arc x -> y with +1 in the row of x and -1 in the row of y, so the whole LP is a pure network. Same contract as Highs (all basic columns as spt pi, integer masses rounded and checked, warm start by adding/deleting nonbasic columns). One thread. At 128 x 128 (uniform, mesh, 1-ring) the solves are about 2.2x faster than HiGHS, same cost.
-- Warm start (step 7, `Highs(warm_start=True)`, default): one persistent model per `solve_sparse`; new entries of N are added as columns (`addCols`), only nonbasic columns outside N are deleted, then the primal simplex continues from the old basis. About 10x fewer simplex iterations, solve time at n = 4096 from 68-128 s to about 6-7 s. The first solve of each level is cold (dual simplex).
+- CPLEX (`solvers/cplex.py`, dependency `cplex` + `docplex`; the full version needs the academic CPLEX Studio and `docplex config --upgrade <CPLEX_Studio path>`, the PyPI package alone is the Community Edition, limited to 1000 variables): network optimizer (network simplex, as Schmitzer). Each entry of N is an arc x -> y with +1 in the row of x and -1 in the row of y, so the whole LP is a pure network; alpha = dual of the x rows, beta = -(dual of the y rows). spt pi = all basic columns including degenerate zeros. One thread, optimality tolerance 1e-9.
+- Integer masses are solved exactly: the transport matrix is totally unimodular, so every basic solution is integral; the values are rounded and the marginals checked exactly, and refined N1 stay exactly feasible on every level. Float masses are scaled to mean mass 1 (tolerances are absolute).
+- Warm start (`Cplex(warm_start=True)`, default): one persistent model per `solve_sparse`; new entries of N are added as columns, only nonbasic columns outside N are deleted, and CPLEX continues from the current basis. The first solve of each level is cold.
+- HiGHS (highspy) was used until 2026-10-17 and removed to keep the code small; its measurements are kept in `rationale.md`.
 
 ## Order of implementation (open for discussion)
 1. Point clouds, Delaunay, S, dense POT reference, dual-feasibility check.
@@ -62,7 +63,7 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 4. `solve_multiscale`.
 5. Quadtree (A) as a baseline; compare A vs B.
 6. Variants of S with q/D statistics: sector neighbours (6, 8) with pruning of redundant candidates; 1-ring as the reference; later possibly an adaptive 2-ring.
-7. HiGHS warm start.
+7. Warm start (HiGHS first, now CPLEX).
 8. MTW costs.
 
 ## Hierarchy (option B)

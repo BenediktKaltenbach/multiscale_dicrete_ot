@@ -1,8 +1,7 @@
 """One large multiscale run, e.g. 256 x 256: per-level statistics and a global dual feasibility check (Cor. 3.10).
 
-python experiments/large_run.py n kind hierarchy candidates [solver] [check]
-  kind: uniform | clustered | anisotropic | grid-disc; hierarchy: mesh | quadtree; candidates: 1-ring | 8-sectors;
-  solver: highs (default) | cplex
+python experiments/large_run.py n kind hierarchy candidates [check]
+  kind: uniform | clustered | anisotropic | grid-disc; hierarchy: mesh | quadtree; candidates: 1-ring | 8-sectors
 """
 import sys
 from pathlib import Path
@@ -15,7 +14,7 @@ from msot.hierarchy import build_pair, build_pair_quadtree
 from msot.mesh import sector_neighbours
 from msot.multiscale import solve_multiscale
 from msot.problems import gaussian_masses, make_problem, quantize, sample_points
-from msot.solvers.highs import Highs
+from msot.solvers.cplex import Cplex
 
 RESULTS = Path(__file__).parent / "results"
 
@@ -37,10 +36,9 @@ def dual_violation_blocks(alpha, beta, X, Y, cost, block=512):
 
 def main():
     n, kind, hierarchy, candidates = int(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
-    solver_name = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] != "check" else "highs"
     check = sys.argv[-1] == "check"
-    name = f"large_{n}_{kind}_{hierarchy}_{candidates}" + ("" if solver_name == "highs" else f"_{solver_name}")
-    lines = [f"== n = {n}, {kind}, {hierarchy} hierarchy, S = {candidates}, integer masses, {solver_name} warm start"]
+    name = f"large_{n}_{kind}_{hierarchy}_{candidates}"
+    lines = [f"== n = {n}, {kind}, {hierarchy} hierarchy, S = {candidates}, integer masses, CPLEX warm start"]
 
     def log(text):
         print(text, flush=True)
@@ -52,12 +50,7 @@ def main():
     built = perf_counter()
     log(f"problem and hierarchy: {built - start:.1f} s, K = {HX.K}, cells of X per level {[HX.number_of_cells(k) for k in range(HX.K + 1)]}")
     choose = None if candidates == "1-ring" else lambda H, k: sector_neighbours(H.rep_points(k), 8)
-    cost = SquaredEuclidean()
-    if solver_name == "cplex":
-        from msot.solvers.cplex import Cplex
-        solver = Cplex()
-    else:
-        solver = Highs()
+    cost, solver = SquaredEuclidean(), Cplex()
     pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=choose)
     solved = perf_counter()
     log(" k   cells X   |N1|/cell  iterations  |N| last/cell  solve s  shield s")

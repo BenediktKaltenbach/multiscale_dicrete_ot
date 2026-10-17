@@ -9,7 +9,7 @@ from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.multiscale import solve_multiscale
 from msot.problems import gaussian_masses, make_problem, sample_points
-from msot.solvers.highs import Highs
+from msot.solvers.cplex import Cplex
 
 KINDS = ("uniform", "clustered", "anisotropic")
 LENGTH_CAPS = (None, 2.0, 3.0, 4.0)
@@ -74,7 +74,7 @@ def solve_table(info):
 
 def run(X, mu, Y, nu, length_cap):
     HX, HY = build_pair(X, mu, Y, nu, n_dense=N_DENSE, length_cap=length_cap)
-    pi, _, _, info = solve_multiscale(HX, HY, SquaredEuclidean(), Highs())
+    pi, _, _, info = solve_multiscale(HX, HY, SquaredEuclidean(), Cplex())
     steps = [step for level in info for step in level["history"]]
     return HX, HY, info, {
         "K": HX.K,
@@ -94,7 +94,7 @@ def main():
     start = perf_counter()
     RESULTS.mkdir(exist_ok=True)
     header = [f"Edge length cap: length_cap in {LENGTH_CAPS}, n = {N}, n_dense = {N_DENSE}, seed {SEED} per kind, "
-              f"solve_multiscale with SquaredEuclidean and Highs",
+              f"solve_multiscale with SquaredEuclidean and Cplex",
               "copy % = fraction of cells with a single child over the coarsening levels 1..K-1; "
               "compactness = rad / distance from rep to the nearest other rep at level k",
               "relative difference = |C - C(length_cap None)| / C(length_cap None)", ""]
