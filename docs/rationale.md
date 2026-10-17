@@ -35,7 +35,7 @@ Why the project looks the way it does. `architecture.md` and the component specs
 
 ## 6. Solvers
 - Requirement: floating point (no integer truncation as LEMON needs, Schmitzer Remark 6.2), simplex only (interior-point solutions are not sparse), Python, open source.
-- **HiGHS via highspy** is the default. CPLEX (Schmitzer's network simplex) would likely be faster but needs a licence; LEMON has no maintained Python binding; OR-Tools min-cost flow is integer-only and returns no duals. All can be added behind `LocalSolver` if profiling demands it.
+- **CPLEX** (academic licence) is available as `solvers/cplex.py` with the network optimizer, as in Schmitzer; HiGHS stays the default so that the code runs without a licence. - **HiGHS via highspy** is the default. CPLEX (Schmitzer's network simplex) would likely be faster but needs a licence; LEMON has no maintained Python binding; OR-Tools min-cost flow is integer-only and returns no duals. All can be added behind `LocalSolver` if profiling demands it.
 - **spt pi = all basic entries, including degenerate zeros.** They satisfy alpha + beta = c (2.4), keep spt pi a spanning tree like a network simplex basis, and keep refined N1 feasible in floating point.
 - **Warm start:** one persistent HiGHS model per `solve_sparse`; new entries of N are added as columns, only nonbasic columns outside N are deleted, primal simplex continues from the old basis. Measured: solve time 128 s -> 6.7 s (uniform, n = 4096), same cost to 1e-16.
 - Dense reference: POT `ot.emd` (network simplex). Dense HiGHS takes 250–520 s at n = 1000, multiscale 3–5 s.
