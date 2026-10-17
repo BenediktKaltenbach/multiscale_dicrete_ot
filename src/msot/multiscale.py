@@ -31,13 +31,13 @@ def refine(pi, HX, HY, k):
     """N1 at scale k: children(x) x children(y) for all (x, y) in spt pi, pi a coupling at scale k + 1."""
     index_pointer_x, children_x = HX.children(k + 1)
     index_pointer_y, children_y = HY.children(k + 1)
-    cells_x, cells_y = pi.row, pi.col
-    lengths_x, lengths_y = np.diff(index_pointer_x)[cells_x], np.diff(index_pointer_y)[cells_y]
+    supp_x, supp_y = pi.row, pi.col
+    lengths_x, lengths_y = np.diff(index_pointer_x)[supp_x], np.diff(index_pointer_y)[supp_y]
     counts = lengths_x * lengths_y
-    entry = np.repeat(np.arange(len(cells_x)), counts)
+    entry = np.repeat(np.arange(len(supp_x)), counts)
     position = np.arange(counts.sum()) - np.repeat(np.cumsum(counts) - counts, counts)
-    rows = children_x[index_pointer_x[cells_x][entry] + position // lengths_y[entry]]
-    columns = children_y[index_pointer_y[cells_y][entry] + position % lengths_y[entry]]
+    rows = children_x[index_pointer_x[supp_x][entry] + position // lengths_y[entry]]
+    columns = children_y[index_pointer_y[supp_y][entry] + position % lengths_y[entry]]
     return rows, columns
 
 
