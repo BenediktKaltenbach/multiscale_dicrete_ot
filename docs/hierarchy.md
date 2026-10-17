@@ -54,13 +54,13 @@ The matching and the attachment are plain Python loops over the edges (about 3 n
 - Level K has one cell; X and Y have the same K.
 - Every cell of a coarsening level has at most 5 children.
 
-## Quality measures (first experiment)
+## Quality measures
 - Distribution of the number of children per cell (target about 4; fraction of copy cells).
 - rad shrinking per level: median of rad_{k+1} / rad_k (target about 2).
-- Compactness: rad relative to the mean nearest-neighbour distance of the reps at that level.
+- Compactness per cell: rad / distance from its rep to the nearest other rep at that level (a global mean spacing misjudges clustered data); per level median, 90% quantile, max and number of cells above 2 (`experiments/hierarchy_measures.py`).
 - Test on uniform, clustered (Gaussian mixture) and anisotropic samples.
 
 ## Open points
 - Edge length in round 2: still the shortest connecting edge (alternative: distance between group centroids). The cap in round 2 is tested on that same edge.
-- Value of length_cap (default 3.0); comparison of None, 2, 3, 4 in `experiments/edge_cap.py`, results in `experiments/results/edge_cap.txt`.
+- Value of length_cap (default 3.0); comparison of None, 2, 3, 4 in `edge_cap.py` (script removed, numbers kept in rationale.md), results in `edge_cap.txt` (from the removed script edge_cap.py).
 - Value of n_dense (initially about 256).

@@ -22,7 +22,7 @@ flowchart TB
     mesh["mesh.py<br/>one_ring, sector_neighbours,<br/>cone_q, candidate_statistics"]
     cost["cost.py<br/>SquaredEuclidean: c, psi, psi_hat,<br/>needed_candidates_all"]
     shielding["shielding.py<br/>extract_map, shield, search_all,<br/>search_tree, missed_brute"]
-    multiscale["multiscale.py<br/>solve_multiscale, refine, solve_sparse"]
+    multiscale["multiscale.py<br/>solve_multiscale, refine, dilate, solve_sparse"]
     solvers["solvers/<br/>base.LocalSolver, base.solve_dense,<br/>cplex.Cplex"]
     verify["verify.py<br/>dual_violation, is_shielding"]
 
@@ -41,7 +41,8 @@ flowchart TB
 flowchart TB
     A["pi = trivial coupling at level K<br/>one cell x one cell"] --> B{"k = K-1 down to 0"}
     B --> C["refine(pi, HX, HY, k)<br/>N1 = children(x) x children(y)<br/>for all (x, y) in spt pi"]
-    C --> D["S on X_k<br/>default: 1-ring HX.neighbours[k]<br/>option: candidates(HX, k), e.g. sector neighbours"]
+    C --> C2["dilate(N1, HY.neighbours[k])<br/>add (x, y2) for y2 in the 1-ring of y<br/>(dilation=True, default)"]
+    C2 --> D["S on X_k<br/>default: 1-ring HX.neighbours[k]<br/>option: candidates(HX, k), e.g. sector neighbours"]
     D --> E["solve_sparse on X_k, Y_k<br/>Alg. 4.1"]
     E --> F["store k, cells, |N1|, history"]
     F --> B
