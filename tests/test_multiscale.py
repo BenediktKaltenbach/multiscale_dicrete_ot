@@ -1,11 +1,12 @@
 import unittest
 
 import numpy as np
+from scipy.sparse import coo_matrix
 
 from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair, build_pair_quadtree
 from msot.mesh import sector_neighbours
-from msot.multiscale import solve_multiscale
+from msot.multiscale import dilate, refine, solve_multiscale
 from msot.problems import make_problem
 from msot.shielding import shield
 from msot.solvers.highs import Highs
@@ -14,10 +15,10 @@ from msot.verify import dual_violation, is_shielding
 
 
 class TestSolveMultiscale(unittest.TestCase):
-    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None):
+    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None, dilation=True):
         cost, solver = SquaredEuclidean(), Highs()
         HX, HY = build_pair_quadtree(X, mu, Y, nu) if quadtree else build_pair(X, mu, Y, nu, n_dense)
-        pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=candidates)
+        pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=candidates, dilation=dilation)
         pi_dense = solve_dense(X, Y, mu, nu, cost)[0]
         C = pi.data @ cost.c(X[pi.row], Y[pi.col])
         C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])
@@ -46,6 +47,21 @@ class TestSolveMultiscale(unittest.TestCase):
             with self.subTest(kind=kind, sectors=sectors):
                 self.check(*make_problem(400, kind, np.random.default_rng(0)),
                            candidates=lambda H, k: sector_neighbours(H.rep_points(k), sectors))
+
+    def test_without_dilation(self):
+        self.check(*make_problem(400, "uniform", np.random.default_rng(0)), dilation=False)
+
+    def test_dilate(self):
+        X, mu, Y, nu = make_problem(400, "uniform", np.random.default_rng(1))
+        HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
+        coarse = coo_matrix((HX.mass[1][:1], ([0], [0])), shape=(HX.number_of_cells(1), HY.number_of_cells(1)))
+        rows, columns = refine(coarse, HX, HY, 0)
+        dilated = set(zip(*dilate((rows, columns), HY.neighbours[0], HY.number_of_cells(0))))
+        index_pointer, indices = HY.neighbours[0]
+        expected = set(zip(rows.tolist(), columns.tolist()))
+        for x, y in zip(rows.tolist(), columns.tolist()):
+            expected |= {(x, int(z)) for z in indices[index_pointer[y]:index_pointer[y + 1]]}
+        self.assertEqual({(int(a), int(b)) for a, b in dilated}, expected)
 
     def test_quadtree(self):
         for kind in ["clustered", "grid"]:

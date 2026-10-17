@@ -3,7 +3,7 @@ from time import perf_counter
 import numpy as np
 from scipy.sparse import coo_matrix
 
-from .shielding import shield
+from .shielding import shield, unique_entries
 
 
 def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tolerance=1e-12, max_iterations=100): 
@@ -45,16 +45,30 @@ def refine(pi, HX, HY, k):
     return rows, columns
 
 
-def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, candidates=None):
+def dilate(N, neighbours, size_y):
+    """N plus (x, y') for every (x, y) in N and y' in the 1-ring of y; neighbours is CSR (index_pointer, indices)."""
+    rows, columns = N
+    index_pointer, indices = neighbours
+    counts = np.diff(index_pointer)[columns]
+    position = np.arange(counts.sum()) - np.repeat(np.cumsum(counts) - counts, counts)
+    ring = indices[np.repeat(index_pointer[columns], counts) + position]
+    return unique_entries(np.concatenate([rows, np.repeat(rows, counts)]), np.concatenate([columns, ring]), size_y)
+
+
+def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, candidates=None, dilation=True):
     """Alg. 4.6, starting from the trivial problem at level K.
 
     candidates(HX, k) gives S on X_k; by default the 1-ring of the level's mesh, HX.neighbours[k].
+    dilation: N1 = refine(spt pi) dilated by the 1-ring of the fine Y mesh (dilate), so the first coupling of a
+    level can already move mass across the borders of the refined blocks; False gives Schmitzer's N1.
     """
     K = HX.K
     pi = coo_matrix((HX.mass[K], ([0], [0])), shape=(1, 1)) #initial trivial coupling
     info = []
     for k in range(K - 1, -1, -1):
         N1 = refine(pi, HX, HY, k) #N1 is tuple (rows, columns) of indices of the support of pi
+        if dilation:
+            N1 = dilate(N1, HY.neighbours[k], HY.number_of_cells(k))
         S = candidates(HX, k) if candidates else HX.neighbours[k] #default is 1-ring, but candidates can be provided, e. g. bracketed candidates
         pi, alpha, beta, N, history = solve_sparse(HX.rep_points(k), HX.mass[k], HY, k, cost, S, N1,
                                                    solver, tolerance, max_iterations)

@@ -16,7 +16,7 @@ Sparse multiscale discrete OT with shielding neighbourhoods (Schmitzer 2016) on 
 | `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3); `SquaredEuclidean` uses (5.7). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
 | `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1, vectorised over all x_A in chunks of 4096), `search_all` (Alg. 5.2 for many x_A at once, on (x_A, cell) pairs level by level), `search_tree` (Alg. 5.2 for one x_A, reference for tests) |
 | `solvers/` | `base.py` interface, `highs.py` (highspy, default), `scipy_highs.py` (linprog, positive support only), later `pot_dense.py`, `cplex.py` |
-| `multiscale.py` | `solve_sparse` (Alg. 4.1), `solve_multiscale` (Alg. 4.6) |
+| `multiscale.py` | `solve_sparse` (Alg. 4.1), `solve_multiscale` (Alg. 4.6, with `dilate` of the initial N1 by default), `refine`, `dilate` |
 | `verify.py` | global dual feasibility alpha(x) + beta(y) <= c(x, y) on X x Y; brute-force check of Def. 3.5 for small problems |
 | `problems.py` | reproducible test problems (X, mu, Y, nu), see `docs/problems.md` |
 
@@ -39,6 +39,9 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 - Shielded only if psi_hat > psi(y_s) + tol. spt pi = all basic entries of the local solution, including degenerate zeros (they satisfy (2.4)); this keeps spt pi a spanning tree, so refined N1 stay feasible in floating point. Alg. 4.1 stops when N no longer grows (or on a relative cost tolerance).
 - mu and nu are integer mass atoms with exactly equal totals (default 10^9, `problems.make_problem`); float masses normalised to equal totals still work, but HiGHS then only meets the marginals up to its tolerance.
 - The same Y hierarchy is used for multiscale solving and for search_tree: at scale k the leaves of the search are the cells of Y_k.
+
+## Initial neighbourhood per level
+- N1 = refine(spt pi), i.e. children(x) x children(y) over spt pi of the coarser level (Alg. 4.6), then dilated by one ring of the fine Y mesh: N1 <- N1 plus (x, y') for every (x, y) in N1 and y' in `HY.neighbours[k][y]` (`multiscale.dilate`, `solve_multiscale(..., dilation=True)`, default). `dilation=False` gives Schmitzer's N1. Only the start of Alg. 4.1 changes; its loop and the certificate (Cor. 3.10) are unchanged. Cost-independent (uses only the Y mesh), so it carries over to MTW costs.
 
 ## Map t and candidate sets
 - t(x) = argmax_y pi(x, y).
