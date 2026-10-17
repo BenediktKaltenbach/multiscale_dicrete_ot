@@ -2,7 +2,7 @@ import numpy as np
 
 
 def dual_violation(alpha, beta, X, Y, cost):
-    """max over X x Y of alpha(x) + beta(y) - c(x, y); <= 0 means globally dual feasible."""
+    """max over X x Y of alpha(x) + beta(y) - c(x, y); <= 0 means dual feasible."""
     return max((alpha[a] + beta - cost.c(X[a], Y)).max() for a in range(len(X)))
 
 
