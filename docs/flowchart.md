@@ -1,6 +1,6 @@
 # Code flowcharts
 
-Visual map of `src/msot` as of 2026-10-17. Algorithm numbers refer to Schmitzer 2016. GitHub renders the diagrams directly.
+Visual map of `src/msot` as of 2026-11-05 (branch `mtw-pruning`). Algorithm numbers refer to Schmitzer 2016. GitHub renders the diagrams directly.
 
 ## 1. Pipeline
 
@@ -8,6 +8,7 @@ Visual map of `src/msot` as of 2026-10-17. Algorithm numbers refer to Schmitzer 
 flowchart LR
     P["problems.make_problem<br/>X, mu, Y, nu<br/>integer mass atoms"] --> H["hierarchy.build_pair<br/>HX, HY with equal depth K"]
     H --> M["multiscale.solve_multiscale<br/>Alg. 4.6"]
+    C["cost.SquaredEuclidean or<br/>cost.Multiquadratic<br/>prune=False default"] --> M
     M --> R["pi, alpha, beta, info"]
     R --> V["verify.dual_violation<br/>alpha + beta ≤ c on X x Y"]
     R --> E["experiments/*.py<br/>results/*.txt, *.png"]
@@ -20,8 +21,8 @@ flowchart TB
     problems["problems.py<br/>sample_points, gaussian_masses,<br/>make_problem, quantize"]
     hierarchy["hierarchy.py<br/>Hierarchy, build_pair, agglomerate,<br/>quadtree, build_pair_quadtree"]
     mesh["mesh.py<br/>one_ring, sector_neighbours,<br/>cone_q, candidate_statistics"]
-    cost["cost.py<br/>SquaredEuclidean: c, psi, psi_hat,<br/>needed_candidates_all"]
-    shielding["shielding.py<br/>extract_map, shield, search_all,<br/>search_tree, missed_brute"]
+    cost["cost.py<br/>FacePruning: needed_candidates_all, _faces<br/>SquaredEuclidean: c, psi, psi_hat, _face_data<br/>Multiquadratic: c, psi, psi_hat, chart, _face_data"]
+    shielding["shielding.py<br/>extract_map, shield, search_all, filter_missed,<br/>search_tree, missed_brute"]
     multiscale["multiscale.py<br/>solve_multiscale, refine, dilate, solve_sparse"]
     solvers["solvers/<br/>base.LocalSolver, base.solve_dense,<br/>cplex.Cplex"]
     verify["verify.py<br/>dual_violation, is_shielding"]
@@ -85,12 +86,13 @@ flowchart TB
 ```mermaid
 flowchart TB
     A["t = extract_map(pi)<br/>step-i: t(x) = argmax_y pi(x, y)"] --> B["entries: spt pi<br/>plus (x_A, t(x_s)) for all candidates, step-ii"]
-    B --> C{"cost has needed_candidates_all<br/>and prune on?"}
-    C -- yes --> D["drop candidates whose half-plane<br/>is no face of the polytope P<br/>(search only, step-ii keeps all)"]
-    C -- no --> E["search with all candidates"]
-    D --> F["search_all in chunks of 4096 x_A<br/>step-iii, Alg. 5.2"]
-    E --> F
-    F --> G["add (x_A, missed cell of Y_k)"]
+    B --> C{"cost.prune?"}
+    C -- yes --> D["needed_candidates_all:<br/>keep candidates whose half-plane is a face<br/>of the polygon of x_A (Fig. 3)<br/>SquaredEuclidean: exact half-planes (5.5) in y<br/>Multiquadratic: tangent half-planes in the<br/>chart p = -grad_x c(x_A, y)"]
+    C -- no --> E["search_all with all candidates<br/>in chunks of 4096 x_A<br/>step-iii, Alg. 5.2"]
+    D --> F["search_all with the kept candidates<br/>in chunks of 4096 x_A<br/>step-iii, Alg. 5.2"]
+    F --> L["filter_missed: drop missed (x_A, y)<br/>that a dropped candidate shields, exact psi"]
+    L --> G["add (x_A, missed cell of Y_k)"]
+    E --> G
     G --> H["unique_entries: new N"]
 ```
 
@@ -100,7 +102,7 @@ flowchart TB
 flowchart TB
     A["frontier = pairs (x_A, root cell of Y_K)"] --> B{"level = K down to k"}
     B --> C["for every pair and every candidate x_s:<br/>psi_hat(x_A, x_s, rep, rad), rad = 0 at level k"]
-    C --> D{"psi_hat > psi(x_A, x_s, y_s) + tol<br/>for some candidate?"}
+    C --> D{"psi_hat > psi(x_A, x_s, y_s) + tolerance<br/>for some candidate?"}
     D -- "yes: shielded" --> X["drop pair"]
     D -- no --> E{"level > k?"}
     E -- yes --> F["replace by (x_A, child) for all children"]
@@ -121,4 +123,15 @@ flowchart TB
     G --> H["_add_level: mass by bincount,<br/>rep = child rep nearest to mass centroid,<br/>rad = max distance over leaves,<br/>Delaunay of the new reps"]
     H --> B
     B -- no --> I["_add_top: level K = one cell"]
+```
+
+## 9. Costs and their bounds
+
+```mermaid
+flowchart LR
+    F["FacePruning<br/>prune, needed_candidates_all,<br/>_faces (polygon faces per x_A)"]
+    F --> SE["SquaredEuclidean<br/>c = |x - y|^2<br/>psi_hat = psi(rep) - 2 |x_s - x_A| rad"]
+    F --> MQ["Multiquadratic, MTW (A3s)<br/>c = sqrt(1 + |x - y|^2)<br/>psi_hat = psi(rep) - |x_s - x_A| rad<br/>since ||D_xy c|| ≤ 1"]
+    SE --> S1["_face_data: normal x_s - x_A<br/>exact half-plane in y"]
+    MQ --> S2["_face_data: tangent half-plane at p_s<br/>in the chart p = -grad_x c(x_A, y)<br/>normal w_A (I + d_A d_A^T)(d_s / w_s - d_A / w_A)"]
 ```
