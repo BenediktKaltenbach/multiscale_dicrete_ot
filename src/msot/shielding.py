@@ -2,7 +2,7 @@ import numpy as np
 
 
 def extract_map(pi):
-    """step-i: t(x) = argmax_y pi(x, y)."""
+    """step-i: t(x) = argmax_y pi(x, y) - argmax is a choice, but seems to work."""
     return np.asarray(pi.tocsr().argmax(axis=1)).ravel()
 
 
@@ -78,7 +78,7 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12, chunk=4096):
         if not needed.all():
             search = np.concatenate([[0], np.cumsum(np.bincount(owner[needed], minlength=len(X)))]), indices[needed]
     rows, columns = [pi.row, owner], [pi.col, t[indices]]
-    for start in range(0, len(X), chunk):
+    for start in range(0, len(X), chunk): #batchwise search to limit memory usage
         sources = np.arange(start, min(start + chunk, len(X)))
         missed_x, missed_y = search_all(X, search, Y[t[search[1]]], Yh, k, cost, tolerance, sources)
         rows.append(missed_x)

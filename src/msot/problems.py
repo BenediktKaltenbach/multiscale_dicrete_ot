@@ -5,17 +5,18 @@ def sample_points(n, kind, rng):
     if kind == "uniform":
         return rng.random((n, 2))
     if kind == "grid":
-        side = int(round(np.sqrt(n)))
-        coordinates = (np.arange(side) + 0.5) / side
+        side_length = int(round(np.sqrt(n)))
+        coordinates = (np.arange(side_length) + 0.5) / side_length
         return np.stack(np.meshgrid(coordinates, coordinates), axis=-1).reshape(-1, 2)
     if kind == "clustered":
         return _gaussian_mixture(n, rng)
     raise ValueError(kind)
 
 
-def _gaussian_mixture(n, rng, n_clusters=4, standard_deviation_range=(0.03, 0.15)):
+def _gaussian_mixture(n, rng, n_clusters=4, std_range=(0.03, 0.15)):
+    """Mixture of `n_clusters` Gaussians with random centres and covariances, truncated to [0, 1]^2."""
     centres = rng.uniform(0.15, 0.85, (n_clusters, 2))
-    covariances = [_random_covariance(rng, np.square(rng.uniform(*standard_deviation_range, 2)))
+    covariances = [_random_covariance(rng, np.square(rng.uniform(*std_range, 2)))
                    for _ in range(n_clusters)]
     points = np.empty((0, 2))
     while len(points) < n:
@@ -27,6 +28,7 @@ def _gaussian_mixture(n, rng, n_clusters=4, standard_deviation_range=(0.03, 0.15
 
 
 def _random_covariance(rng, eigenvalues):
+    """Generate a random 2x2 covariance matrix with the given eigenvalues."""
     angle = rng.uniform(0, np.pi)
     rotation = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
     return rotation @ np.diag(eigenvalues) @ rotation.T
@@ -53,7 +55,7 @@ def gaussian_masses(points, rng, n_gauss=4, eigenvalue_range=(1.8, 100.0), mask=
 
 def make_problem(n, points_kind, rng, atoms=10**9, **mass_kwargs):
     """atoms: masses as integer numbers of mass atoms with exactly `atoms` in total (Schmitzer, Remark 6.2);
-    None gives float masses normalised to 1."""
+    None gives float masses normalised to 1, but should be used with caution."""
     X = sample_points(n, points_kind, rng)
     Y = sample_points(n, points_kind, rng)
     mu = gaussian_masses(X, rng, **mass_kwargs)
@@ -69,6 +71,6 @@ def make_problem(n, points_kind, rng, atoms=10**9, **mass_kwargs):
 
 def quantize(mass, atoms):
     """Integer numbers of atoms (as floats, exact below 2**53), at least one per point, summing to exactly atoms."""
-    counts = np.maximum(np.round(mass / mass.sum() * atoms), 1)
+    counts = np.maximum(np.round((mass * atoms) / mass.sum()), 1)
     counts[np.argmax(counts)] += atoms - counts.sum()
     return counts

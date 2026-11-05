@@ -6,7 +6,7 @@ from .base import LocalSolver
 
 
 class Cplex(LocalSolver):
-    """CPLEX network optimizer (network simplex), as in Schmitzer 2016, Sect. 6.
+    """CPLEX network optimizer (network simplex) via IBM academic license.
 
     Each entry (x, y) of N is an arc x -> y: coefficient +1 in the row of x (= mu(x)) and -1 in the row of y
     (= -nu(y)), a pure network matrix, so CPLEX solves it with its network simplex. alpha = dual of the x rows,

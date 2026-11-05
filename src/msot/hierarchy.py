@@ -29,7 +29,7 @@ class Hierarchy:
 
     def children(self, k):
         """Children of all cells of level k as CSR (index_pointer, indices) into level k-1."""
-        if k not in self._children:
+        if k not in self._children: #builds dic entry if it not already called before
             parent = self.parent[k - 1]
             counts = np.bincount(parent, minlength=self.number_of_cells(k))
             index_pointer = np.concatenate([[0], np.cumsum(counts)])
@@ -79,7 +79,7 @@ def _attach(labels, edge_start, edge_end):
 
 
 def _sorted_edges(H, k):
-    """Edges a < b of the level-k mesh, sorted by the distance between the reps, and that distance."""
+    """Edges a < b of the level-k mesh, sorted by the distance between the reps, used for joining neighbouring cells (called twice)."""
     index_pointer, indices = H.neighbours[k]
     edge_start = np.repeat(np.arange(H.number_of_cells(k)), np.diff(index_pointer))
     keep = edge_start < indices
@@ -91,7 +91,8 @@ def _sorted_edges(H, k):
 
 
 def _passes_cap(edge_start, edge_end, length, n, length_cap):
-    """length(a, b) <= length_cap * max(spacing[a], spacing[b]); spacing = distance to the nearest other rep."""
+    """length(a, b) <= length_cap * max(spacing[a], spacing[b]); spacing = distance to the nearest other rep.
+    Checked for each edge if we should join it."""
     spacing = np.full(n, np.inf)
     np.minimum.at(spacing, edge_start, length)
     np.minimum.at(spacing, edge_end, length)
