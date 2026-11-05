@@ -59,28 +59,53 @@ def search_all(X, S, ys, Yh, k, cost, tolerance, sources=None):
     return pair_x, pair_cell
 
 
+def _subset(owner, indices, mask, n):
+    """CSR (index_pointer, indices) of the candidate entries selected by mask; owner[e] is the x_A of entry e."""
+    return np.concatenate([[0], np.cumsum(np.bincount(owner[mask], minlength=n))]), indices[mask]
+
+
+def filter_missed(pair_x, pair_cell, X, D, yd, Y, cost, tolerance):
+    """Removes the missed pairs (x_A, y) that a dropped candidate shields (5.2) exactly.
+
+    D is CSR (index_pointer, indices) of the dropped candidates x_s on X, yd their partners t(x_s), Y the points of Y_k.
+    """
+    index_pointer, indices = D
+    counts = np.diff(index_pointer)
+    pair_of = np.repeat(np.arange(len(pair_x)), counts[pair_x])
+    entry = _ranges(index_pointer[pair_x], counts[pair_x])
+    xA, xs = X[pair_x[pair_of]], X[indices[entry]]
+    shielded = cost.psi(xA, xs, Y[pair_cell[pair_of]]) > cost.psi(xA, xs, yd[entry]) + tolerance
+    hit = np.bincount(pair_of[shielded], minlength=len(pair_x)) > 0
+    return pair_x[~hit], pair_cell[~hit]
+
+
 def shield(pi, S, X, Yh, k, cost, tolerance=1e-12, chunk=4096):
     """Alg. 5.1 at scale k, vectorised over all x_A. pi is COO; all stored entries count as spt pi.
 
-    X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k. If the cost provides
-    needed_candidates, redundant candidates are skipped in the search (step-iii, Y_hat unchanged); step-ii
-    still adds (xA, t(xs)) for all candidates, since these entries speed up the convergence of Alg. 4.1.
+    X are the points of X_k, S a CSR adjacency (index_pointer, indices) on X_k. If the cost prunes
+    (needed_candidates_all), the search (step-iii) runs with the kept candidates only and its missed cells are
+    then checked exactly against the dropped ones (filter_missed), so Y_hat equals the search with all candidates
+    whatever the pruning drops. Step-ii still adds (xA, t(xs)) for all candidates, since these entries speed up
+    the convergence of Alg. 4.1.
     The search runs on chunks of x_A to bound memory (about 75 kB per x_A at peak).
     """
     t = extract_map(pi)
     Y = Yh.rep_points(k)
     index_pointer, indices = S
     owner = np.repeat(np.arange(len(X)), np.diff(index_pointer))
-    search = S
+    search, dropped = S, None
     prune = getattr(cost, "needed_candidates_all", None)
     if prune is not None:
         needed = prune(X, S, Y[t[indices]], tolerance)
         if not needed.all():
-            search = np.concatenate([[0], np.cumsum(np.bincount(owner[needed], minlength=len(X)))]), indices[needed]
+            search = _subset(owner, indices, needed, len(X))
+            dropped = _subset(owner, indices, ~needed, len(X))
     rows, columns = [pi.row, owner], [pi.col, t[indices]]
     for start in range(0, len(X), chunk): #batchwise search to limit memory usage
         sources = np.arange(start, min(start + chunk, len(X)))
         missed_x, missed_y = search_all(X, search, Y[t[search[1]]], Yh, k, cost, tolerance, sources)
+        if dropped is not None:
+            missed_x, missed_y = filter_missed(missed_x, missed_y, X, dropped, Y[t[dropped[1]]], Y, cost, tolerance)
         rows.append(missed_x)
         columns.append(missed_y)
     rows, columns = np.concatenate(rows), np.concatenate(columns)
