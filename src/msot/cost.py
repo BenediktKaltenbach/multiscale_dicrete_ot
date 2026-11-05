@@ -90,8 +90,8 @@ class SquaredEuclidean(FacePruning):
         return normals, np.einsum("ij,ij->i", normals, ys) + tolerance / 2
 
 
-class SqrtQuadratic(FacePruning):
-    """c(x, y) = sqrt(1 + |x - y|^2), an MTW cost (A3s).
+class Multiquadratic(FacePruning):
+    """Multiquadratic cost c(x, y) = sqrt(1 + |x - y|^2) (Hardy's multiquadric), an MTW cost (A3s).
 
     With d = x - y and w = c(x, y): grad_x c = d / w, D_xy c = -(I - d d^T / w^2) / w with eigenvalues -1/w and
     -1/w^3, so ||D_xy c|| <= 1 globally, and (D_xy c)^(-1) = -w (I + d d^T).

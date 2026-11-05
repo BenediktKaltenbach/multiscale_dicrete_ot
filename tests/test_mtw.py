@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from msot.cost import SqrtQuadratic, SquaredEuclidean
+from msot.cost import Multiquadratic, SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.multiscale import solve_multiscale
 from msot.problems import make_problem
@@ -16,14 +16,14 @@ def coupling(kind, n=400, seed=0, cost=None):
     """A problem with its hierarchies and the optimal coupling at level 0."""
     X, mu, Y, nu = make_problem(n, kind, np.random.default_rng(seed))
     HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
-    pi = solve_multiscale(HX, HY, cost or SqrtQuadratic(), Cplex())[0]
+    pi = solve_multiscale(HX, HY, cost or Multiquadratic(), Cplex())[0]
     return X, Y, HX, HY, pi
 
 
-class TestSqrtQuadratic(unittest.TestCase):
+class TestMultiquadratic(unittest.TestCase):
     def test_psi_hat_is_lower_bound(self):
         rng = np.random.default_rng(2)
-        cost = SqrtQuadratic()
+        cost = Multiquadratic()
         for _ in range(200):
             xA, xs, rep = rng.random((3, 2))
             rad = rng.random() * 0.3
@@ -32,7 +32,7 @@ class TestSqrtQuadratic(unittest.TestCase):
 
     def test_chart_normal_matches_finite_differences(self):
         rng = np.random.default_rng(3)
-        cost = SqrtQuadratic()
+        cost = Multiquadratic()
         xA, xs, ys = rng.random((3, 20, 2))
         normals, offsets = cost._face_data(xA, xs, ys, 0.0)
         p_s = cost.chart(xA, ys)
@@ -50,7 +50,7 @@ class TestSqrtQuadratic(unittest.TestCase):
     def test_unshielded_set_inside_tangent_half_plane(self):
         """Loeper (MTW): {y : psi(y) <= psi(y_s)} is convex in the chart, so it lies in the tangent half-plane."""
         rng = np.random.default_rng(4)
-        cost = SqrtQuadratic()
+        cost = Multiquadratic()
         Y = rng.random((4000, 2))
         for _ in range(50):
             xA, xs, ys = rng.random((3, 2))
@@ -60,7 +60,7 @@ class TestSqrtQuadratic(unittest.TestCase):
             self.assertTrue((side <= 1e-12).all())
 
     def test_search_matches_brute_force(self):
-        cost = SqrtQuadratic()
+        cost = Multiquadratic()
         for kind in ["uniform", "clustered"]:
             X, Y, HX, HY, pi = coupling(kind, cost=cost)
             t = extract_map(pi)
@@ -75,7 +75,7 @@ class TestSqrtQuadratic(unittest.TestCase):
                                                   missed_brute(*triple, Yk, cost, 1e-12))
 
     def test_pruning_with_filter_is_exact(self):
-        for cost_class in (SqrtQuadratic, SquaredEuclidean):
+        for cost_class in (Multiquadratic, SquaredEuclidean):
             for kind in ["uniform", "clustered", "grid"]:
                 with self.subTest(cost=cost_class.__name__, kind=kind):
                     X, Y, HX, HY, pi = coupling(kind, cost=cost_class())
@@ -89,10 +89,10 @@ class TestSqrtQuadratic(unittest.TestCase):
             with self.subTest(kind=kind):
                 X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0), mask=mask)
                 HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
-                dense = solve_dense(X, Y, mu, nu, SqrtQuadratic(), Cplex(warm_start=False))[0]
-                C_dense = dense.data @ SqrtQuadratic().c(X[dense.row], Y[dense.col])
+                dense = solve_dense(X, Y, mu, nu, Multiquadratic(), Cplex(warm_start=False))[0]
+                C_dense = dense.data @ Multiquadratic().c(X[dense.row], Y[dense.col])
                 for prune in (False, True):
-                    cost = SqrtQuadratic(prune=prune)
+                    cost = Multiquadratic(prune=prune)
                     pi, alpha, beta, _ = solve_multiscale(HX, HY, cost, Cplex())
                     self.assertAlmostEqual(pi.data @ cost.c(X[pi.row], Y[pi.col]), C_dense, delta=1e-9 * C_dense)
                     self.assertLess(dual_violation(alpha, beta, X, Y, cost), 1e-6)

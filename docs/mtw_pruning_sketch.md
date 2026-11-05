@@ -1,6 +1,6 @@
 # Sketch: candidate pruning in the $c$-exponential chart + exact leaf filter
 
-Status: implemented on branch `mtw-pruning` as sketched (`cost.FacePruning`, `cost.SqrtQuadratic`, `shielding.filter_missed`), tests in `tests/test_mtw.py`, results in `rationale.md`, Section 4b. The text below is the original proposal.
+Status: implemented on branch `mtw-pruning` as sketched (`cost.FacePruning`, `cost.Multiquadratic`, `shielding.filter_missed`), tests in `tests/test_mtw.py`, results in `rationale.md`, Section 4b. The text below is the original proposal.
 
 ## Idea
 
@@ -114,7 +114,7 @@ The hierarchical lower bound uses $\|D^2_{xy}c\|\le1$:
 $$\hat g_s(\hat y)=g_s(\mathrm{rep}(\hat y))-|x_s-x_A|\,\mathrm{rad}(\hat y).$$
 
 ```python
-class SqrtQuadratic(FacePruning):
+class Multiquadratic(FacePruning):
     def __init__(self, prune=False):
         self.prune = prune
 
@@ -140,9 +140,9 @@ class SqrtQuadratic(FacePruning):
 ## Tests (unittest)
 
 1. Euclidean, `prune=True`: result of `shield` with filter equals the result without pruning (filter removes nothing, `_faces` is exact).
-2. `SqrtQuadratic`, `prune=True` vs `prune=False`: identical $N$ (the filter makes it exact).
-3. `SqrtQuadratic`: `missed_brute` equals `search_all` without pruning (validates `psi_hat`).
-4. `SqrtQuadratic`: $n_s$ vs finite differences of $f_s=g_s\circ\exp^c_{x_A}$ at $p_s$ (already checked once by hand).
+2. `Multiquadratic`, `prune=True` vs `prune=False`: identical $N$ (the filter makes it exact).
+3. `Multiquadratic`: `missed_brute` equals `search_all` without pruning (validates `psi_hat`).
+4. `Multiquadratic`: $n_s$ vs finite differences of $f_s=g_s\circ\exp^c_{x_A}$ at $p_s$ (already checked once by hand).
 
 ## Cost estimate
 

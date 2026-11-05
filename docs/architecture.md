@@ -13,7 +13,7 @@ Sparse multiscale discrete OT with shielding neighbourhoods (Schmitzer 2016) on 
 |---|---|
 | `hierarchy.py` | Hierarchical partition: per level k arrays `rep[k]`, `rad[k]`, `parent[k]`, `mass[k]`, `cell_of[k]`, `neighbours[k]`; `children` derived. Builders: `agglomerate` / `build_pair` (mesh hierarchy, option B, default) and `quadtree` / `build_pair_quadtree` (Def. 4.4, option A, baseline); see `docs/hierarchy.md` |
 | `mesh.py` | Delaunay 1-ring (`one_ring`), sector neighbours (`sector_neighbours`), cone constant q (5.6) and D per vertex (`cone_q`, `candidate_statistics`) |
-| `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3): `SquaredEuclidean` (bound (5.7)) and the MTW cost `SqrtQuadratic`, c = sqrt(1 + \|x - y\|^2) (Lipschitz bound, chart `chart`). Both share `FacePruning` (optional candidate pruning, `needed_candidates_all`); a cost only supplies its half-planes (`_face_data`). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
+| `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3): `SquaredEuclidean` (bound (5.7)) and the MTW cost `Multiquadratic`, c = sqrt(1 + \|x - y\|^2) (Lipschitz bound, chart `chart`). Both share `FacePruning` (optional candidate pruning, `needed_candidates_all`); a cost only supplies its half-planes (`_face_data`). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
 | `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1, vectorised over all x_A in chunks of 4096), `search_all` (Alg. 5.2 for many x_A at once, on (x_A, cell) pairs level by level), `search_tree` (Alg. 5.2 for one x_A, reference for tests) |
 | `solvers/` | `base.py` interface and `solve_dense` (dense reference with any solver), `cplex.py` (CPLEX network optimizer, the only backend) |
 | `multiscale.py` | `solve_sparse` (Alg. 4.1), `solve_multiscale` (Alg. 4.6, with `dilate` of the initial N1 by default), `refine`, `dilate` |
@@ -69,7 +69,7 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 5. Done: quadtree (A) as a baseline, compared with B (`compare_hierarchies.py` (script removed, numbers kept in rationale.md), `hierarchy_measures.py`, 256 x 256 runs).
 6. Done: variants of S with q/D statistics (`candidate_sets.py` (script removed, numbers kept in rationale.md)): 1-ring default, 8 sector neighbours as an option, pruning off by default; possible expansion: adaptive 2-ring.
 7. Done: warm start (HiGHS first, now CPLEX).
-8. In progress (branch `mtw-pruning`): first MTW cost `SqrtQuadratic` with chart pruning and exact leaf filter.
+8. In progress (branch `mtw-pruning`): first MTW cost `Multiquadratic` with chart pruning and exact leaf filter.
 
 ## Hierarchy (option B)
 - Bottom-up from the given points: level 0 = points with their Delaunay mesh.
@@ -79,6 +79,6 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 ## MTW readiness
 - Correctness of shield and the search (Alg. 5.2) holds for any cost; MTW only affects sparsity. The core therefore uses only `c`, `psi`, `psi_hat` (and, if pruning is on, `needed_candidates_all`).
 - Everything Euclidean-specific (bound (5.7), half-plane fences, polygon geometry) lives in `SquaredEuclidean` or in experiments, never in shielding.py.
-- MTW costs need their own `psi_hat`; the generic bound is psi(rep y) - L * rad(y), with L bounding the y-Lipschitz constant of psi on the cell (sup |D_xy c| * |x_A - x_s|). `SqrtQuadratic` uses ||D_xy c|| <= 1, i.e. L = |x_s - x_A|.
+- MTW costs need their own `psi_hat`; the generic bound is psi(rep y) - L * rad(y), with L bounding the y-Lipschitz constant of psi on the cell (sup |D_xy c| * |x_A - x_s|). `Multiquadratic` uses ||D_xy c|| <= 1, i.e. L = |x_s - x_A|.
 - Pruning for MTW costs (`docs/mtw_pruning_sketch.md`): per x_A the candidates are mapped to the c-exponential chart p = -grad_x c(x_A, y), each gives the tangent half-plane of its unshielded set at p_s, and only faces of their polygon are searched. The missed cells of that search are then checked exactly against the dropped candidates (`shielding.filter_missed`), so Y_hat equals the search with all candidates whatever the pruning drops; MTW (Loeper: unshielded sets convex in the chart) only makes the pruning a good heuristic. Step-ii keeps all candidates.
-- The chart is a cost method (`SqrtQuadratic.chart`), used by the pruning and for plots, not by the search.
+- The chart is a cost method (`Multiquadratic.chart`), used by the pruning and for plots, not by the search.
