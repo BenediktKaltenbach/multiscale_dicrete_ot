@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from scipy.spatial import cKDTree
 
-from msot.hierarchy import agglomerate, build_pair, build_pair_quadtree
+from msot.hierarchy import build_pair, build_pair_quadtree
 from msot.problems import make_problem
 
 
@@ -52,7 +52,7 @@ class TestHierarchy(unittest.TestCase):
             points = np.random.default_rng(0).random((n, 2)) * scale
             maximum = {}
             for length_cap in [3.0, None]:
-                H = agglomerate(points, np.ones(n), n_dense=256, length_cap=length_cap)
+                H = build_pair(points, np.ones(n), points, np.ones(n), n_dense=256, length_cap=length_cap)[0]
                 reps = H.rep_points(1)
                 maximum[length_cap] = (H.rad[1] / cKDTree(reps).query(reps, 2)[0][:, 1]).max()
             with self.subTest(scale=scale):
@@ -73,7 +73,7 @@ class TestHierarchy(unittest.TestCase):
 
     def test_about_four_children(self):
         points = np.random.default_rng(2).random((2000, 2))
-        H = agglomerate(points, np.ones(2000), n_dense=32)
+        H = build_pair(points, np.ones(2000), points, np.ones(2000), n_dense=32)[0]
         self.check_mesh(H)
         self.assertGreater(H.number_of_cells(0) / H.number_of_cells(1), 3)
 

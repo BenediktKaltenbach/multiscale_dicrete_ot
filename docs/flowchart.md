@@ -19,7 +19,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     problems["problems.py<br/>sample_points, gaussian_masses,<br/>make_problem, quantize"]
-    hierarchy["hierarchy.py<br/>Hierarchy, build_pair, agglomerate,<br/>quadtree, build_pair_quadtree"]
+    hierarchy["hierarchy.py<br/>Hierarchy, build_pair,<br/>build_pair_quadtree, quadtree"]
     mesh["mesh.py<br/>one_ring, sector_neighbours,<br/>cone_q, candidate_statistics"]
     cost["cost.py<br/>FacePruning: needed_candidates_all, _faces<br/>SquaredEuclidean: c, psi, psi_hat, _face_data<br/>Multiquadratic: c, psi, psi_hat, chart, _face_data"]
     shielding["shielding.py<br/>extract_map, shield, search_all, filter_missed,<br/>search_tree, missed_brute"]
@@ -110,7 +110,7 @@ flowchart TB
     E -- no --> G["pair is in Y_hat(x_A)"]
 ```
 
-## 8. Building the mesh hierarchy (build_pair / agglomerate)
+## 8. Building the mesh hierarchy (build_pair)
 
 ```mermaid
 flowchart TB
