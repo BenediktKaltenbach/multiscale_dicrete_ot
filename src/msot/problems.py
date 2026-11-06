@@ -71,6 +71,6 @@ def make_problem(n, points_kind, rng, atoms=10**9, **mass_kwargs):
 
 def quantize(mass, atoms):
     """Integer numbers of atoms (as floats, exact below 2**53), at least one per point, summing to exactly atoms."""
-    counts = np.maximum(np.round((mass * atoms) / mass.sum()), 1)
-    counts[np.argmax(counts)] += atoms - counts.sum()
+    counts = np.maximum(np.round((mass * atoms) / mass.sum()), 1) #we give every point at least one atom, so the total may exceed atoms
+    counts[np.argmax(counts)] += atoms - counts.sum() #adjust the largest value to make the total exactly atoms again
     return counts
