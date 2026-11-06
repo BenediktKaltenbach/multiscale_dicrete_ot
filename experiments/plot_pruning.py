@@ -80,8 +80,8 @@ def figure(seed, a, path=None):
                      lw=1.1, marker="o" if keep else "s")
     left.scatter(*xa, s=28, color=INK, zorder=5)
     named = np.flatnonzero(needed)[np.argmax(X[candidates][needed, 1])]
-    left.annotate(r"$x_s$", X[candidates][named], xytext=(4, 4), textcoords="offset points", color=KEPT)
-    left.annotate(r"$x_A$", xa, xytext=(4, 5), textcoords="offset points", color=INK)
+    left.annotate(r"$x_s$", X[candidates][named], xytext=(5, -13), textcoords="offset points", color=KEPT)
+    left.annotate(r"$x_A$", xa, xytext=(5, 9), textcoords="offset points", color=INK)
     left.set(xlim=(xa[0] - hx, xa[0] + hx), ylim=(xa[1] - hx, xa[1] + hx), aspect="equal", xticks=[], yticks=[])
     left.set_title(r"(a) $X$: candidates $x_s \in S(x_A)$", fontsize=9)
 
@@ -97,7 +97,7 @@ def figure(seed, a, path=None):
                                                          lw=0.7, mutation_scale=6), zorder=3)
         right.scatter(*y, s=20, zorder=4, color=KEPT if keep else "white", edgecolor=KEPT if keep else DROPPED,
                       lw=1.1, marker="o" if keep else "s")
-    right.annotate(r"$y_s$", ys[named], xytext=(-12, 3), textcoords="offset points", color=KEPT)
+    right.annotate(r"$y_s$", ys[named], xytext=(-17, 5), textcoords="offset points", color=KEPT)
     inside = np.all(np.einsum("sd,psd->ps", normals[needed], Y[:, None] - ys[needed][None]) <= 1e-12, axis=1)
     visible = (Y[:, 0] > bx0) & (Y[:, 0] < bx1) & (Y[:, 1] > by0) & (Y[:, 1] < by1)
     right.scatter(*Y[visible & ~inside].T, s=4, color=MUTED, zorder=1, lw=0)
