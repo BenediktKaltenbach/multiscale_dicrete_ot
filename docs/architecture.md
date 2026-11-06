@@ -11,7 +11,7 @@ Sparse multiscale discrete OT with shielding neighbourhoods (Schmitzer 2016) on 
 ## Modules
 | File | Contents |
 |---|---|
-| `hierarchy.py` | Hierarchical partition: per level k arrays `rep[k]`, `rad[k]`, `parent[k]`, `mass[k]`, `cell_of[k]`, `neighbours[k]`; `children` derived. Builders: `agglomerate` / `build_pair` (mesh hierarchy, option B, default) and `quadtree` / `build_pair_quadtree` (Def. 4.4, option A, baseline); see `docs/hierarchy.md` |
+| `hierarchy.py` | Hierarchical partition: per level k arrays `rep[k]`, `rad[k]`, `parent[k]`, `mass[k]`, `cell_of[k]`, `neighbours[k]`; `children` derived. Builders: `build_pair` (mesh hierarchy, option B, default) and `quadtree` / `build_pair_quadtree` (Def. 4.4, option A, baseline); see `docs/hierarchy.md` |
 | `mesh.py` | Delaunay 1-ring (`one_ring`), sector neighbours (`sector_neighbours`), cone constant q (5.6) and D per vertex (`cone_q`, `candidate_statistics`) |
 | `cost.py` | Cost classes with `c`, `psi` (5.1), `psi_hat` (5.3); `SquaredEuclidean` uses (5.7) and has the optional candidate pruning (`needed_candidates_all`). Coarse cost c_k(x, y) = c(rep x, rep y) (4.2) |
 | `shielding.py` | map extraction t (step-i), candidate sets S(x_A), `shield` (Alg. 5.1, vectorised over all x_A in chunks of 4096), `search_all` (Alg. 5.2 for many x_A at once, on (x_A, cell) pairs level by level), `search_tree` (Alg. 5.2 for one x_A, reference for tests) |

@@ -37,6 +37,19 @@ class Hierarchy:
         return self._children[k]
 
 
+# Mesh hierarchy (option B, default)
+
+def build_pair(X, mu, Y, nu, n_dense=256, length_cap=3.0):
+    """Coarsens X and Y together until both have at most n_dense cells, so that both hierarchies have depth K."""
+    HX, HY = _level_zero(X, mu), _level_zero(Y, nu)
+    while max(HX.number_of_cells(HX.K), HY.number_of_cells(HY.K)) > n_dense:
+        _coarsen(HX, length_cap)
+        _coarsen(HY, length_cap)
+    _add_top(HX)
+    _add_top(HY)
+    return HX, HY
+
+
 def _level_zero(points, mass):
     n = len(points)
     return Hierarchy(points, [mass], [np.arange(n)], [np.zeros(n)], [], [np.arange(n)], [_mesh(points)])
@@ -49,6 +62,45 @@ def _mesh(points):
     except (QhullError, ValueError):
         indices = np.array([j for i in range(n) for j in range(n) if j != i], dtype=np.int32)
         return np.arange(n + 1, dtype=np.int32) * (n - 1), indices
+
+
+def _coarsen(H, length_cap):
+    _add_level(H, _coarsening_parent(H, length_cap) if H.number_of_cells(H.K) > 1 else np.zeros(1, dtype=int))
+
+
+def _add_top(H):
+    _add_level(H, np.zeros(H.number_of_cells(H.K), dtype=int))
+
+
+def _coarsening_parent(H, length_cap):
+    edge_start, edge_end, length = _sorted_edges(H, H.K)
+    labels = np.arange(H.number_of_cells(H.K))
+    if length_cap is None:
+        return _match(_match(labels, edge_start, edge_end), edge_start, edge_end)
+    allowed = _passes_cap(edge_start, edge_end, length, len(labels), length_cap)
+    edge_start, edge_end = edge_start[allowed], edge_end[allowed]
+    return _attach(_match(_match(labels, edge_start, edge_end), edge_start, edge_end), edge_start, edge_end)
+
+
+def _sorted_edges(H, k):
+    """Edges a < b of the level-k mesh, sorted by the distance between the reps, used for joining neighbouring cells (called twice)."""
+    index_pointer, indices = H.neighbours[k]
+    edge_start = np.repeat(np.arange(H.number_of_cells(k)), np.diff(index_pointer))
+    keep = edge_start < indices
+    edge_start, edge_end = edge_start[keep], indices[keep]
+    points = H.rep_points(k)
+    length = np.linalg.norm(points[edge_start] - points[edge_end], axis=1)
+    order = np.argsort(length, kind="stable")
+    return edge_start[order], edge_end[order], length[order]
+
+
+def _passes_cap(edge_start, edge_end, length, n, length_cap):
+    """length(a, b) <= length_cap * max(spacing[a], spacing[b]); spacing = distance to the nearest other rep.
+    Checked for each edge if we should join it."""
+    spacing = np.full(n, np.inf)
+    np.minimum.at(spacing, edge_start, length)
+    np.minimum.at(spacing, edge_end, length)
+    return length <= length_cap * np.maximum(spacing[edge_start], spacing[edge_end])
 
 
 def _match(labels, edge_start, edge_end):
@@ -78,38 +130,8 @@ def _attach(labels, edge_start, edge_end):
     return np.unique(labels, return_inverse=True)[1]
 
 
-def _sorted_edges(H, k):
-    """Edges a < b of the level-k mesh, sorted by the distance between the reps, used for joining neighbouring cells (called twice)."""
-    index_pointer, indices = H.neighbours[k]
-    edge_start = np.repeat(np.arange(H.number_of_cells(k)), np.diff(index_pointer))
-    keep = edge_start < indices
-    edge_start, edge_end = edge_start[keep], indices[keep]
-    points = H.rep_points(k)
-    length = np.linalg.norm(points[edge_start] - points[edge_end], axis=1)
-    order = np.argsort(length, kind="stable")
-    return edge_start[order], edge_end[order], length[order]
-
-
-def _passes_cap(edge_start, edge_end, length, n, length_cap):
-    """length(a, b) <= length_cap * max(spacing[a], spacing[b]); spacing = distance to the nearest other rep.
-    Checked for each edge if we should join it."""
-    spacing = np.full(n, np.inf)
-    np.minimum.at(spacing, edge_start, length)
-    np.minimum.at(spacing, edge_end, length)
-    return length <= length_cap * np.maximum(spacing[edge_start], spacing[edge_end])
-
-
-def _coarsening_parent(H, length_cap):
-    edge_start, edge_end, length = _sorted_edges(H, H.K)
-    labels = np.arange(H.number_of_cells(H.K))
-    if length_cap is None:
-        return _match(_match(labels, edge_start, edge_end), edge_start, edge_end)
-    allowed = _passes_cap(edge_start, edge_end, length, len(labels), length_cap)
-    edge_start, edge_end = edge_start[allowed], edge_end[allowed]
-    return _attach(_match(_match(labels, edge_start, edge_end), edge_start, edge_end), edge_start, edge_end)
-
-
 def _add_level(H, parent):
+    """Appends level K+1 given the parent of each level-K cell; shared by the mesh hierarchy and the quadtree."""
     k = H.K
     n = parent.max() + 1
     cell_of = parent[H.cell_of[k]]
@@ -132,45 +154,7 @@ def _add_level(H, parent):
     H.neighbours.append(_mesh(H.points[rep]))
 
 
-def _coarsen(H, length_cap):
-    _add_level(H, _coarsening_parent(H, length_cap) if H.number_of_cells(H.K) > 1 else np.zeros(1, dtype=int))
-
-
-def _add_top(H):
-    _add_level(H, np.zeros(H.number_of_cells(H.K), dtype=int))
-
-
-def agglomerate(points, mass, n_dense=256, length_cap=3.0):
-    H = _level_zero(points, mass)
-    while H.number_of_cells(H.K) > n_dense:
-        _coarsen(H, length_cap)
-    _add_top(H)
-    return H
-
-
-def build_pair(X, mu, Y, nu, n_dense=256, length_cap=3.0):
-    HX, HY = _level_zero(X, mu), _level_zero(Y, nu)
-    while max(HX.number_of_cells(HX.K), HY.number_of_cells(HY.K)) > n_dense:
-        _coarsen(HX, length_cap)
-        _coarsen(HY, length_cap)
-    _add_top(HX)
-    _add_top(HY)
-    return HX, HY
-
-
-def quadtree(points, mass, K, corner, side):
-    """Def. 4.4 with K levels over the square [corner, corner + side]; reps are existing points as in agglomerate."""
-    H = _level_zero(points, mass)
-    finest = 2 ** (K - 1)
-    cube = np.clip(np.floor((points - corner) / side * finest).astype(np.int64), 0, finest - 1)
-    for k in range(1, K + 1):
-        cube_k = cube >> (k - 1)
-        label = np.unique(cube_k[:, 0] * finest + cube_k[:, 1], return_inverse=True)[1]
-        parent = np.empty(H.number_of_cells(k - 1), dtype=np.int64)
-        parent[H.cell_of[k - 1]] = label
-        _add_level(H, parent)
-    return H
-
+# Quadtree (option A, baseline)
 
 def build_pair_quadtree(X, mu, Y, nu):
     """Quadtrees over one common square, with the smallest K such that the finest cubes hold about 4 points."""
@@ -181,3 +165,17 @@ def build_pair_quadtree(X, mu, Y, nu):
     while max(len(X), len(Y)) > 4 ** K:
         K += 1
     return quadtree(X, mu, K, corner, side), quadtree(Y, nu, K, corner, side)
+
+
+def quadtree(points, mass, K, corner, side):
+    """Def. 4.4 with K levels over the square [corner, corner + side]; reps are existing points as in the mesh hierarchy."""
+    H = _level_zero(points, mass)
+    finest = 2 ** (K - 1)
+    cube = np.clip(np.floor((points - corner) / side * finest).astype(np.int64), 0, finest - 1)
+    for k in range(1, K + 1):
+        cube_k = cube >> (k - 1)
+        label = np.unique(cube_k[:, 0] * finest + cube_k[:, 1], return_inverse=True)[1]
+        parent = np.empty(H.number_of_cells(k - 1), dtype=np.int64)
+        parent[H.cell_of[k - 1]] = label
+        _add_level(H, parent)
+    return H

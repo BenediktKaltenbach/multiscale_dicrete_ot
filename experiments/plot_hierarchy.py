@@ -14,7 +14,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial import ConvexHull, QhullError
 
-from msot.hierarchy import _attach, _match, _passes_cap, _sorted_edges, agglomerate, build_pair_quadtree
+from msot.hierarchy import _attach, _match, _passes_cap, _sorted_edges, build_pair, build_pair_quadtree
 from msot.problems import sample_points
 
 RESULTS = Path(__file__).parent / "results"
@@ -236,7 +236,7 @@ def main():
     for kind in KINDS:
         points = sample_points(NUMBER_OF_POINTS, kind, np.random.default_rng(SEED))
         mass = np.full(len(points), 1 / len(points))
-        hierarchies = {"mesh": agglomerate(points, mass, N_DENSE, LENGTH_CAP),
+        hierarchies = {"mesh": build_pair(points, mass, points, mass, N_DENSE, LENGTH_CAP)[0],
                        "quadtree": build_pair_quadtree(points, mass, points, mass)[0]}
         for name, H in hierarchies.items():
             report(H, f"{kind} {name}")

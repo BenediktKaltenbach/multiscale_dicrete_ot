@@ -22,8 +22,7 @@ class Hierarchy:
 `children(k, i)` is derived from `parent[k-1]`. `rep_points(k)` returns `points[rep[k]]`.
 
 ## Builder
-`agglomerate(points, mass, n_dense=256, length_cap=3.0) -> Hierarchy` for a single set.
-`build_pair(X, mu, Y, nu, n_dense=256, length_cap=3.0) -> (HX, HY)` coarsens both sets with the same number of steps, so both have depth K.
+`build_pair(X, mu, Y, nu, n_dense=256, length_cap=3.0) -> (HX, HY)` coarsens both sets with the same number of steps, so both have depth K. For a single set, pass it twice and take `HX`.
 `length_cap=None` switches off the edge length cap and the attachment of leftovers (steps 0 and 3 below); this is the original matching, kept for comparison.
 
 ### Level 0
