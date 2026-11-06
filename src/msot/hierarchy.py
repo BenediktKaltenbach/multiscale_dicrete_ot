@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy.spatial import QhullError
 
-from .mesh import one_ring
+from .mesh import one_ring #currently only really use one function from mesh.py, do we even need a seperate file
 
 
 @dataclass
@@ -37,7 +37,7 @@ class Hierarchy:
         return self._children[k]
 
 
-# Mesh hierarchy (option B, default)
+# Mesh hierarchy (default)
 
 def build_pair(X, mu, Y, nu, n_dense=256, length_cap=3.0):
     """Coarsens X and Y together until both have at most n_dense cells, so that both hierarchies have depth K."""
@@ -154,7 +154,7 @@ def _add_level(H, parent):
     H.neighbours.append(_mesh(H.points[rep]))
 
 
-# Quadtree (option A, baseline)
+# Quadtree (baseline)
 
 def build_pair_quadtree(X, mu, Y, nu):
     """Quadtrees over one common square, with the smallest K such that the finest cubes hold about 4 points."""
