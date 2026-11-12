@@ -21,4 +21,36 @@ Identical to `docs/experiment_candidate_sets.md` (code and machine, problems wit
 - Recorded additionally per run: the number of points in the masks of X and Y and the share of the unmasked mass that lies in them.
 
 ## Results
-A first run on 2026-11-12 with one disc per mask ran on battery power (about 60 % slower than on mains) and was discarded; its files are kept in `experiments/results/masks_on_battery/`. To be rerun on mains power.
+A first run on 2026-11-12 with one disc per mask ran on battery power (about 60 % slower than on mains) and was discarded; its files are kept in `experiments/results/masks_on_battery/`.
+
+Valid run: 2026-11-12 on mains power (checked before the start: battery status "on mains", charging), commit `84f15a0`. The pair uniform seed 2 was disturbed (both runs about 50 % slower than the identical problem in `docs/experiment_candidate_sets.md`, in solve and shield time alike: 92.0 s and 91.0 s) and was rerun right after the full run, with identical work (same rounds per level, same cost); `runs.json` keeps the disturbed times under "first run, disturbed".
+
+**Correctness and reproducibility.** All 18 runs are optimal (dual violation at most 8.8e-10, exactly 0 on the grid), all hierarchies have K = 5. Every unmasked run repeats its problem from the candidate-set experiment exactly (same rounds per level, same cost); its time is 0–17 % shorter (mean 7 %), which shows the timing difference between two sessions.
+
+Means over the 3 seeds (single seeds in brackets; times in s):
+
+| kind | problem | total time | solve | shield | iterations at level 0 | all iterations | \|N\| / \|X\| at level 0 |
+|---|---|---|---|---|---|---|---|
+| grid | without masks | 60.5 (46.0, 46.1, 89.5) | 18.9 | 40.7 | 10, 9, 23 | 32, 31, 47 | 9.8, 11.8, 13.2 |
+| grid | with masks | 73.2 (76.3, 53.8, 89.4) | 21.9 | 50.1 | 19, 11, 22 | 44, 32, 46 | 9.7, 11.4, 12.8 |
+| uniform | without masks | 52.3 (55.5, 43.9, 57.7) | 20.2 | 31.3 | 8, 8, 9 | 35, 28, 38 | 14.8, 10.7, 9.7 |
+| uniform | with masks | 95.1 (146.4, 76.4, 62.6) | 32.9 | 60.5 | 25, 11, 10 | 50, 35, 41 | 16.9, 8.3, 9.9 |
+| clustered | without masks | 53.5 (55.3, 50.9, 54.3) | 18.3 | 34.4 | 12, 11, 9 | 38, 33, 31 | 11.2, 6.9, 10.7 |
+| clustered | with masks | 54.9 (49.7, 49.6, 65.3) | 17.8 | 36.4 | 10, 12, 12 | 55, 36, 44 | 11.4, 6.6, 11.2 |
+
+Per problem, time with / without masks and the share of the unmasked mass inside the masks (mu / nu):
+
+| kind | seed 0 | seed 1 | seed 2 |
+|---|---|---|---|
+| grid | 1.66 (0 / 28 %) | 1.17 (3 / 0 %) | 1.00 (0 / 19 %) |
+| uniform | 2.64 (23 / 22 %) | 1.74 (0 / 19 %) | 1.09 (19 / 32 %) |
+| clustered | 0.90 (6 / 0 %) | 0.97 (2 / 0 %) | 1.20 (12 / 0 %) |
+
+**Findings.**
+- The masks make the problems harder on average, mainly through more rounds of Alg. 4.1 at level 0, not through larger neighbourhoods: |N| / |X| at level 0 changes by -22 % to +14 % (mean about -1 %), while the rounds at level 0 grow up to threefold (uniform seed 0: 8 -> 25, grid seed 0: 10 -> 19). The local problems keep their size; the multiscale initialisation is just further from the fine optimum, as expected when the coarse levels average over a sharp edge.
+- Mean slowdown: uniform 1.82x, grid 1.21x, clustered 1.03x; per problem from 0.90x to 2.64x.
+- The slowdown is not proportional to the removed mass: uniform seed 2 loses 19 % of mu and 32 % of nu and becomes only 9 % slower, uniform seed 0 loses about 22 % of each and becomes 2.6x slower; grid seed 2 loses 19 % of nu without any slowdown. What matters is how the cut changes the transport (whether mass must be moved across or around the cut over long distances), not how much mass it removes.
+- On the clustered problems the masks of nu remove no mass in any seed and those of mu at most 12 %, so the clustered problems barely change (0.90x to 1.20x; seed 0 needs more rounds on the coarse levels but fewer at level 0).
+- The masked problems still converge with neighbourhoods of the same size as the smooth ones, which is consistent with Schmitzer's observation (Fig. 7) that |N_x| rises only locally near discontinuities of the map (the locality itself was not measured here).
+
+Figures (in `experiments/results/masks/`): `masks_problem` (masked mu and nu of grid seed 0 with the mask outlines), `masks_time` (total time), `masks_level0` (iterations and |N| / |X| at level 0).

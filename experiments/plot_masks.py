@@ -1,6 +1,6 @@
 """Thesis figures for experiments/masks.py (conventions in docs/figures.md).
 
-masks_problem: the masked masses mu and nu of the grid problem with seed 0 (log scale), showing the masks.
+masks_problem: the masked masses mu and nu of the grid problem with seed 0 (log scale), masks outlined.
 masks_time: total time per point kind, unmasked vs. masked, one marker per seed, mean as a bar.
 masks_level0: solve_sparse iterations and |N| / |X| at level 0, same layout.
 
@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
 
-from masks import N, problems
-from thesis_style import ACCENT, LATEX, MUTED, TEXT_WIDTH, save, strip_legend, strip_plot, style
+from masks import MASKS, N, inside, problems
+from thesis_style import ACCENT, INK, MUTED, TEXT_WIDTH, save, strip_legend, strip_plot, style
 
 VARIANTS = {"unmasked": dict(color=MUTED, marker="s", label="without masks"),
             "masked": dict(color=ACCENT, marker="o", label="with masks")}
@@ -27,15 +27,21 @@ def problem(folder):
     images = [np.log10(mass / mass.mean()).reshape(side, side) for mass in (mu, nu)]
     low, high = min(image.min() for image in images), max(image.max() for image in images)
     fig, axes = plt.subplots(1, 2, figsize=(TEXT_WIDTH, 0.5 * TEXT_WIDTH), layout="constrained")
-    for axis, image, name in zip(axes, images, (r"$\mu$", r"$\nu$")):
+    fine = np.linspace(0, 1, 801)
+    grid = np.stack(np.meshgrid(fine, fine), axis=-1).reshape(-1, 2)
+    for axis, image, name, mask in zip(axes, images, (r"$\mu$", r"$\nu$"), (MASKS["mu"], MASKS["nu"])):
         shown = axis.imshow(image, origin="lower", extent=(0, 1, 0, 1), cmap="Blues", vmin=low, vmax=high,
                             interpolation="nearest")
+        axis.contour(fine, fine, inside(grid, mask).reshape(len(fine), len(fine)).astype(float), levels=[0.5],
+                     colors=INK, linewidths=0.7, linestyles="--")
         axis.set_title(name, fontsize=9)
         axis.set_xticks([0, 1])
         axis.set_yticks([0, 1])
     colour_bar = fig.colorbar(shown, ax=axes, shrink=0.85, pad=0.02)
     colour_bar.set_label(r"$\log_{10}$ (mass / mean mass)")
     colour_bar.outline.set_linewidth(0.5)
+    fig.legend(handles=[plt.Line2D([], [], color=INK, lw=0.7, linestyle="--", label="boundary of the mask")],
+               loc="outside lower center", frameon=False)
     save(fig, folder, "masks_problem")
 
 
