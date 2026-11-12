@@ -54,4 +54,39 @@ Does the choice of the candidate set S(x_A) for the shielding search (Schmitzer 
 - Every run: global dual feasibility max over all of X x Y of alpha + beta - c (Cor. 3.10, blockwise over 512 rows of X) is recorded; it must be <= 1e-9 for an optimal pi. Both candidate sets must reach the same optimal cost per unit mass.
 
 ## Results
-(to be filled in after the run)
+Run 2026-11-12 at commit `a5628c8`, no uncommitted changes in `src/`. All 9 problems have K = 5 (e.g. uniform seed 0: 16384, 4586, 1272, 361, 97, 1 cells of X per level); building the hierarchy pair takes 0.3 s (0.5 s on the grid).
+
+**Correctness.** In all 18 runs the dual violation max(alpha + beta - c) over X x Y is at most 8.9e-10 (exactly 0 on the grid). Per problem both candidate sets give the same optimal cost (relative difference at most 8e-16).
+
+Means over the 3 seeds (single seeds in brackets; times in s):
+
+| kind | S | total time | solve | shield | iterations at level 0 | all iterations | \|N\| per point at level 0 |
+|---|---|---|---|---|---|---|---|
+| uniform | 1-ring | 56.9 (63.2, 45.7, 61.9) | 21.8 | 34.2 | 8, 8, 9 | 35, 28, 38 | 14.8, 10.8, 9.7 |
+| uniform | 8 sectors | 57.7 (62.2, 51.4, 59.7) | 19.9 | 36.8 | 8, 8, 8 | 37, 28, 30 | 12.6, 9.6, 9.3 |
+| clustered | 1-ring | 59.4 (66.2, 51.0, 61.1) | 23.4 | 35.3 | 12, 11, 9 | 38, 33, 31 | 11.2, 6.9, 10.7 |
+| clustered | 8 sectors | 60.5 (58.0, 57.2, 66.2) | 22.2 | 37.4 | 9, 9, 10 | 33, 32, 31 | 12.0, 7.6, 10.6 |
+| grid | 1-ring | 64.0 (46.2, 48.2, 97.5) | 19.7 | 43.1 | 10, 9, 23 | 32, 31, 47 | 9.8, 11.8, 13.2 |
+| grid | 8 sectors | 79.2 (52.7, 51.7, 133.3) | 17.7 | 60.5 | 10, 8, 32 | 31, 31, 56 | 8.3, 8.8, 8.8 |
+
+Cone constant q at level 0, all seeds pooled:
+
+| kind | S | 5 % quantile | median | share with q <= 0 |
+|---|---|---|---|---|
+| uniform | 1-ring | 0.35 | 0.64 | 0.15 % |
+| uniform | 8 sectors | 0.57 | 0.80 | 0.93 % |
+| clustered | 1-ring | 0.38 | 0.64 | 0.12 % |
+| clustered | 8 sectors | 0.61 | 0.80 | 0.39 % |
+| grid | 1-ring | 0.71 | 0.71 | 0.02 % |
+| grid | 8 sectors | 0.92 | 0.92 | 0.02 % |
+
+On the grid the boundary points (about 3 %) have q = 0 up to rounding (a 180° gap), which is why the share with q <= 0 is so small there.
+
+**Findings.**
+- Run time is a tie on unstructured points: the 8 sectors take +1.4 % (uniform) and +1.9 % (clustered) on average, well within the spread between seeds (up to 38 %). On the grid the 8 sectors are slower in every seed (+14 %, +7 %, +37 %).
+- The sector sets have the clearly better cone constant (median 0.80 vs. 0.64 on random points, 0.92 vs. 0.71 on the grid), and accordingly mostly the smaller N at level 0 (uniform -11 %, grid -25 %, clustered +5 %) and a slightly shorter solve time (-5 to -10 %). But the search costs more: S has 7.8 candidates per point instead of 6.0 at level 0 (7.9 vs. 5.9 on the grid), and every visited cell is tested against every candidate, so the shield time grows by 6–8 % on random points and by 40 % on the grid. The two effects cancel on random points, and the search cost wins on the grid.
+- The empty outward sectors at the boundary give the sector sets more points with q <= 0 (P unbounded) on random points (0.9 % vs. 0.15 % uniform).
+- Grid seed 2 is the hardest problem for both candidate sets (23 and 32 rounds at level 0); it dominates the grid means. The other two grid seeds behave like the random point sets.
+- Conclusion: the better cone constant of the sector sets does not translate into a faster solver; the Delaunay 1-ring stays the default (it comes with the hierarchy for free and is never slower on average).
+
+Figures (in `experiments/results/candidate_sets/`): `candidate_sets_runtime` (total time), `candidate_sets_level0` (iterations and |N| per point at level 0), `candidate_sets_q` (cumulative distribution of q at level 0).
