@@ -1,7 +1,8 @@
 """Thesis figures for experiments/candidate_sets.py (conventions in docs/figures.md).
 
 candidate_sets_runtime: total time per point kind, one marker per seed, mean as a bar.
-candidate_sets_level0: solve_sparse iterations and |N| per point at level 0, same layout.
+candidate_sets_level0: solve_sparse iterations and |N| / |X| at level 0 (N the shielding neighbourhood of the
+last round, the variables of the local problem), same layout.
 candidate_sets_q: distribution of the cone constant q (5.6) at level 0, all seeds pooled, one panel per kind.
 
 python experiments/plot_candidate_sets.py [results folder]
@@ -32,7 +33,7 @@ def level0(runs, folder):
     strip_plot(left, runs, VARIANTS, "S", lambda run: len(run["levels"][-1]["history"]), "iterations at level 0")
     left.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
     strip_plot(right, runs, VARIANTS, "S", lambda run: run["levels"][-1]["history"][-1]["N"] / run["cells per level"][0],
-               r"$|N|$ per point at level 0")
+               r"$|N| \,/\, |X|$ at level 0")
     strip_legend(fig, VARIANTS)
     save(fig, folder, "candidate_sets_level0")
 

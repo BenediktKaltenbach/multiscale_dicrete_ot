@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 import numpy as np
 
 from thesis_style import ACCENT, INK, KINDS, LATEX, MUTED, TEXT_WIDTH, save, strip_legend, strip_plot, style
@@ -48,7 +49,8 @@ def ratio(runs, folder):
 
 
 def dropped(runs, folder):
-    fig, axis = plt.subplots(figsize=(TEXT_WIDTH, 0.36 * TEXT_WIDTH), layout="constrained")
+    fig, axis = plt.subplots(figsize=(TEXT_WIDTH, 0.4 * TEXT_WIDTH), layout="constrained")
+    highest = 0
     for kind in KINDS:
         share_per_level = {}
         for run in runs:
@@ -64,13 +66,17 @@ def dropped(runs, folder):
                 share_per_level.setdefault(k, []).append(drop / candidates)
         levels = sorted(share_per_level, reverse=True)
         look = KIND_LOOKS[kind]
-        axis.plot(levels, [100 * np.mean(share_per_level[k]) for k in levels], color=look["color"],
+        shares = [100 * np.mean(share_per_level[k]) for k in levels]
+        highest = max(highest, max(shares))
+        axis.set_xticks(levels)
+        axis.plot(levels, shares, color=look["color"],
                   linestyle=look["linestyle"], marker=look["marker"], markersize=3.5, lw=1.1,
                   markerfacecolor=look["color"] if look["marker"] != "s" else "white", label=kind)
     axis.invert_xaxis()
     axis.set_xlabel(r"level $k$ (0 = finest)")
-    axis.set_ylabel(r"candidates dropped [\%]" if LATEX else "candidates dropped [%]")
-    axis.set_ylim(bottom=0)
+    axis.set_ylabel(r"dropped [\%]" if LATEX else "dropped [%]")
+    axis.set_ylim(0, 5 * np.ceil(1.1 * highest / 5))
+    axis.yaxis.set_major_locator(matplotlib.ticker.MultipleLocator(5))
     fig.legend(loc="outside lower center", ncols=len(KINDS), frameon=False)
     save(fig, folder, "pruning_dropped")
 

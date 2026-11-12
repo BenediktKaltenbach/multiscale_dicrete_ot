@@ -46,7 +46,7 @@ Does the choice of the candidate set S(x_A) for the shielding search (Schmitzer 
 - Total time: wall clock (`time.perf_counter`) of `solve_multiscale`, from the trivial coupling to the final pi at level 0; includes computing the sector neighbours, excludes problem generation, hierarchy construction (recorded separately as "hierarchy time") and the verification below.
 - Solve time and shield time: sums over all rounds of all levels of the time in `solver.solve_local` and in `shield`.
 - Per level and round (`levels[...]["history"]`): cost C of pi, |N| (number of entries of the local problem's N; the CPLEX model can additionally hold basic columns from the previous round), solve and shield time; per level: number of cells, |N1|.
-- "Iterations at level 0": rounds of Alg. 4.1 at the finest level. "|N| per point at level 0": |N| of the last round at level 0 divided by n.
+- "Iterations at level 0": rounds of Alg. 4.1 at the finest level. "|N| / |X| at level 0": size of the shielding neighbourhood N of the last round at level 0 (the number of variables of the local problem) divided by n; not to be confused with the candidate set S(x_A), which has 6.0 (1-ring) or 7.8 (8 sectors) points on average at level 0.
 - Cone constant q(x_A) (5.6) at level 0 for both candidate sets: cos of half the largest angular gap between the directions x_s - x_A (`mesh.cone_q`); q <= 0 means P(x_A) is unbounded (boundary points).
 
 ## Run protocol and verification
@@ -60,25 +60,25 @@ Run 2026-11-12 at commit `a5628c8`, no uncommitted changes in `src/`. All 9 prob
 
 Means over the 3 seeds (single seeds in brackets; times in s):
 
-| kind | S | total time | solve | shield | iterations at level 0 | all iterations | \|N\| per point at level 0 |
+| kind | S | total time | solve | shield | iterations at level 0 | all iterations | \|N\| / \|X\| at level 0 |
 |---|---|---|---|---|---|---|---|
+| grid | 1-ring | 64.0 (46.2, 48.2, 97.5) | 19.7 | 43.1 | 10, 9, 23 | 32, 31, 47 | 9.8, 11.8, 13.2 |
+| grid | 8 sectors | 79.2 (52.7, 51.7, 133.3) | 17.7 | 60.5 | 10, 8, 32 | 31, 31, 56 | 8.3, 8.8, 8.8 |
 | uniform | 1-ring | 56.9 (63.2, 45.7, 61.9) | 21.8 | 34.2 | 8, 8, 9 | 35, 28, 38 | 14.8, 10.8, 9.7 |
 | uniform | 8 sectors | 57.7 (62.2, 51.4, 59.7) | 19.9 | 36.8 | 8, 8, 8 | 37, 28, 30 | 12.6, 9.6, 9.3 |
 | clustered | 1-ring | 59.4 (66.2, 51.0, 61.1) | 23.4 | 35.3 | 12, 11, 9 | 38, 33, 31 | 11.2, 6.9, 10.7 |
 | clustered | 8 sectors | 60.5 (58.0, 57.2, 66.2) | 22.2 | 37.4 | 9, 9, 10 | 33, 32, 31 | 12.0, 7.6, 10.6 |
-| grid | 1-ring | 64.0 (46.2, 48.2, 97.5) | 19.7 | 43.1 | 10, 9, 23 | 32, 31, 47 | 9.8, 11.8, 13.2 |
-| grid | 8 sectors | 79.2 (52.7, 51.7, 133.3) | 17.7 | 60.5 | 10, 8, 32 | 31, 31, 56 | 8.3, 8.8, 8.8 |
 
 Cone constant q at level 0, all seeds pooled:
 
 | kind | S | 5 % quantile | median | share with q <= 0 |
 |---|---|---|---|---|
+| grid | 1-ring | 0.71 | 0.71 | 0.02 % |
+| grid | 8 sectors | 0.92 | 0.92 | 0.02 % |
 | uniform | 1-ring | 0.35 | 0.64 | 0.15 % |
 | uniform | 8 sectors | 0.57 | 0.80 | 0.93 % |
 | clustered | 1-ring | 0.38 | 0.64 | 0.12 % |
 | clustered | 8 sectors | 0.61 | 0.80 | 0.39 % |
-| grid | 1-ring | 0.71 | 0.71 | 0.02 % |
-| grid | 8 sectors | 0.92 | 0.92 | 0.02 % |
 
 On the grid the boundary points (about 3 %) have q = 0 up to rounding (a 180° gap), which is why the share with q <= 0 is so small there.
 
@@ -89,4 +89,4 @@ On the grid the boundary points (about 3 %) have q = 0 up to rounding (a 180° g
 - Grid seed 2 is the hardest problem for both candidate sets (23 and 32 rounds at level 0); it dominates the grid means. The other two grid seeds behave like the random point sets.
 - Conclusion: the better cone constant of the sector sets does not translate into a faster solver; the Delaunay 1-ring stays the default (it comes with the hierarchy for free and is never slower on average).
 
-Figures (in `experiments/results/candidate_sets/`): `candidate_sets_runtime` (total time), `candidate_sets_level0` (iterations and |N| per point at level 0), `candidate_sets_q` (cumulative distribution of q at level 0).
+Figures (in `experiments/results/candidate_sets/`): `candidate_sets_runtime` (total time), `candidate_sets_level0` (iterations and |N| / |X| at level 0), `candidate_sets_q` (cumulative distribution of q at level 0).

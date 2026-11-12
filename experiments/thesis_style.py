@@ -4,12 +4,13 @@ import shutil
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.legend_handler import HandlerTuple
 import numpy as np
 
 TEXT_WIDTH = 345 / 72.27  # \textwidth of the article class at 10pt, in inches: figures are used at 100%
 LATEX = shutil.which("pdflatex") is not None
 ACCENT, MUTED, INK, FAINT = "#2b5d8c", "#6b7380", "#1d232b", "#c9ced6"
-KINDS = ("uniform", "clustered", "grid")
+KINDS = ("grid", "uniform", "clustered")  # order of the point kinds in every figure
 
 
 def style():
@@ -55,7 +56,9 @@ def strip_legend(fig, variants, with_mean=True):
     handles = [plt.Line2D([], [], color=look["color"], marker=look["marker"], lw=0, markersize=4,
                           markerfacecolor=look["color"] if look["marker"] == "o" else "white", label=look["label"])
                for look in variants.values()]
+    labels = [handle.get_label() for handle in handles]
     if with_mean:
-        handles.append(plt.Line2D([], [], color=MUTED, lw=1.2, label="mean of 3 seeds"))
-    fig.legend(handles=handles, loc="outside lower center", ncols=len(handles), frameon=False, handletextpad=0.4,
-               columnspacing=1.4)
+        handles.append(tuple(plt.Line2D([], [], color=look["color"], lw=1.2) for look in variants.values()))
+        labels.append("mean of 3 seeds")
+    fig.legend(handles=handles, labels=labels, loc="outside lower center", ncols=len(handles), frameon=False,
+               handletextpad=0.4, columnspacing=1.4, handler_map={tuple: HandlerTuple(ndivide=None, pad=0.4)})
