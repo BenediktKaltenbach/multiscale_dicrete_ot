@@ -40,7 +40,8 @@ Does the choice of the candidate set S(x_A) for the shielding search (Schmitzer 
 ## Candidate sets (the variable of the experiment)
 - `1-ring`: S(x_A) = the neighbours of x_A in the Delaunay mesh of the level (`HX.neighbours[k]`, computed while building the hierarchy).
 - `8 sectors`: S(x_A) = in each of 8 equal angular sectors around x_A (first sector starting at angle 0), the nearest point among the 32 nearest points of x_A (`mesh.sector_neighbours(points, 8)`, k-d tree); sectors with none of the 32 nearest stay empty (at the boundary). Computed per level inside the timed run.
-- Both are computed on the reps of X_k at every level k.
+- Addendum `6 sectors`: the same with 6 sectors (`mesh.sector_neighbours(points, 6)`), run afterwards on the same 9 problems (see the addendum below).
+- All are computed on the reps of X_k at every level k.
 
 ## Measurements
 - Total time: wall clock (`time.perf_counter`) of `solve_multiscale`, from the trivial coupling to the final pi at level 0; includes computing the sector neighbours, excludes problem generation, hierarchy construction (recorded separately as "hierarchy time") and the verification below.
@@ -90,3 +91,28 @@ On the grid the boundary points (about 3 %) have q = 0 up to rounding (a 180° g
 - Conclusion: the better cone constant of the sector sets does not translate into a faster solver; the Delaunay 1-ring stays the default (it comes with the hierarchy for free and is never slower on average).
 
 Figures (in `experiments/results/candidate_sets/`): `candidate_sets_runtime` (total time), `candidate_sets_level0` (iterations and |N| / |X| at level 0), `candidate_sets_q` (cumulative distribution of q at level 0).
+
+## Addendum: 6 sector neighbours
+Added 2026-11-12 after the main runs, because the question is natural: does a sector set with as many candidates as the 1-ring (6 on average) do better? Same 9 problems, same hierarchies (rebuilt deterministically from the seeds), run by `python experiments/candidate_sets.py "6 sectors"` at commit `4156281` (the code path is unchanged; the script only gained the variant), one variant per problem, about 40 minutes after the main runs on the same machine. Iterations, |N| and q compare exactly with the main runs; times carry the additional drift between two sessions (a few %).
+The runs were added to `runs.json` and `q_level0.npz`; the files of the main runs alone are kept in `experiments/results/candidate_sets/two_variants/`. The figures exist in both versions: `candidate_sets_*` (1-ring vs. 8 sectors, as above) and `candidate_sets_*_with_6_sectors` (all three).
+
+**Correctness.** Same optimal cost as the 1-ring in all 9 problems (relative difference at most 6e-16), dual violation at most 2.8e-10.
+
+| kind | S | total time | solve | shield | iterations at level 0 | all iterations | \|N\| / \|X\| at level 0 |
+|---|---|---|---|---|---|---|---|
+| grid | 6 sectors | 78.7 (55.3, 51.1, 129.7) | 26.1 | 50.9 | 12, 10, 26 | 34, 31, 50 | 9.3, 9.1, 16.3 |
+| uniform | 6 sectors | 63.4 (72.9, 51.4, 66.0) | 27.7 | 34.6 | 8, 8, 8 | 34, 29, 34 | 15.7, 11.1, 11.3 |
+| clustered | 6 sectors | 60.4 (67.7, 45.6, 67.9) | 26.5 | 32.8 | 10, 9, 9 | 36, 31, 30 | 15.1, 10.7, 13.3 |
+
+| kind | S | 5 % quantile of q | median | share with q <= 0 |
+|---|---|---|---|---|
+| grid | 6 sectors | 0.71 | 0.71 | 0.02 % |
+| uniform | 6 sectors | 0.52 | 0.68 | 1.24 % |
+| clustered | 6 sectors | 0.54 | 0.68 | 0.44 % |
+
+**Findings.**
+- 6 sectors have the same number of candidates as the 1-ring (5.9 per point at level 0) and a better cone constant on random points (5 % quantile 0.52 vs. 0.35, median 0.68 vs. 0.64), but the **largest** N of the three sets on random points (mean |N| / |X| at level 0: uniform 12.7 vs. 11.8 for the 1-ring and 10.5 for 8 sectors; clustered 13.0 vs. 9.6 and 10.0). The solve time grows accordingly (26–28 s vs. 20–23 s), and 6 sectors are the slowest set on average (total time vs. the 1-ring: uniform +11 %, clustered +2 %, grid +23 %; all within the spread between seeds except uniform).
+- On the grid the 6 sectors find the same q (0.71) as the 1-ring; seed 2 is again the hard problem (26 rounds at level 0).
+- Likely reason (not measured separately): q is only a worst-case bound on the polygon P(x_A) (Prop. 5.3). For the squared Euclidean cost P(x_A) is bounded by the half-planes of the candidates, and the Delaunay neighbours are exactly the points whose half-planes bound the Voronoi cell of x_A; nearest-per-sector points can miss a Voronoi neighbour, so P(x_A) is looser in that direction despite the better q. With 8 sectors the extra candidates make up for it, with 6 they do not.
+- This confirms the earlier observation at n = 4096 (`docs/rationale.md` §4): 6 sectors are the weakest variant. The 1-ring stays the default.
+
