@@ -1,7 +1,7 @@
 """Thesis experiment: how much harder discontinuous masks make the problems, Delaunay 1-ring, at 128 x 128.
 
 Setup in docs/experiment_masks.md. For each point kind and seed the problem of candidate_sets.py is solved as it is
-and with masks: mu and nu each lose their mass (down to the floor) on an edge strip and a disc. The masks are drawn
+and with masks: mu and nu each lose their mass (down to the floor) on an edge strip and two discs. The masks are drawn
 once (MASK_SEED), differ between mu and nu and are the same in all 9 problems. Order alternated per seed.
 Writes experiments/results/masks/runs.json; plot_masks.py makes the figures.
 
@@ -19,26 +19,26 @@ from msot.problems import gaussian_masses, quantize, sample_points
 from candidate_sets import environment, solve
 
 N, KINDS, SEEDS = 128 * 128, ("uniform", "clustered", "grid"), (0, 1, 2)
-MASK_SEED, STRIP_DEPTH, MAXIMAL_TILT, DISC_RADIUS, FLOOR, ATOMS = 2026, 0.1, np.radians(20), 0.06, 1e-3, 10**9
+MASK_SEED, STRIP_DEPTH, MAXIMAL_TILT, DISCS, DISC_RADIUS, FLOOR, ATOMS = 2026, 0.1, np.radians(20), 2, 0.06, 1e-3, 10**9
 RESULTS = Path(__file__).parent / "results" / "masks"
 
 
 def draw_mask(rng):
     """An edge strip {p : <normal, p> > offset} of depth STRIP_DEPTH at the middle of a random edge, tilted by up to
-    MAXIMAL_TILT, and a disc of radius DISC_RADIUS with its centre uniform in [0.15, 0.85]^2."""
+    MAXIMAL_TILT, and DISCS discs of radius DISC_RADIUS with centres uniform in [0.15, 0.85]^2 (they may overlap)."""
     edge = int(rng.integers(4))
     angle = edge * np.pi / 2 + rng.uniform(-MAXIMAL_TILT, MAXIMAL_TILT)  # outward normal of the strip
     normal = np.array([np.cos(angle), np.sin(angle)])
     middle = 0.5 + 0.5 * np.array([np.cos(edge * np.pi / 2), np.sin(edge * np.pi / 2)])
     inner = middle - STRIP_DEPTH * np.array([np.cos(edge * np.pi / 2), np.sin(edge * np.pi / 2)])
     return {"edge": edge, "normal": normal.tolist(), "offset": float(normal @ inner),
-            "disc centre": rng.uniform(0.15, 0.85, 2).tolist(), "disc radius": DISC_RADIUS}
+            "disc centres": rng.uniform(0.15, 0.85, (DISCS, 2)).tolist(), "disc radius": DISC_RADIUS}
 
 
 def inside(points, mask):
     strip = points @ np.array(mask["normal"]) > mask["offset"]
-    disc = np.linalg.norm(points - mask["disc centre"], axis=1) < mask["disc radius"]
-    return strip | disc
+    distances = np.linalg.norm(points[:, None] - np.array(mask["disc centres"])[None], axis=2)
+    return strip | (distances < mask["disc radius"]).any(axis=1)
 
 
 def apply_mask(mass, points, mask):
