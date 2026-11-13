@@ -66,16 +66,16 @@ class SquaredEuclideanPruning(SquaredEuclidean):
     face_test "exact": keep the candidates whose half-space is a facet of P(x_A), found per x_A with Qhull
     (Chebyshev centre c by an LP, facets = vertices other than 0 of the convex hull of 0 and the dual points
     n_s / (b_s - <n_s, c>)). P without a finite inscribed ball or degenerate hulls keep all candidates. In 2D the vectorised polygon test of FacePruning is used.
-    face_test "closest": keep the share keep_share of the half-spaces closest to the mean of the partners t(x_s),
-    a cheap estimate of t(x_A); this may drop needed candidates, which only costs search work (filter_missed keeps
-    the result exact).
+    face_test "closest": keep the share keep_share of the half-spaces closest to t(x_A) (partners; without them
+    the mean of the t(x_s) as an estimate); this may drop needed candidates, which only costs search work
+    (filter_missed keeps the result exact).
     """
 
     def __init__(self, face_test="exact", keep_share=0.6):
         super().__init__(prune=True)
         self.face_test, self.keep_share = face_test, keep_share
 
-    def needed_candidates_all(self, X, S, ys, tolerance, xs=None, chunk=1024):
+    def needed_candidates_all(self, X, S, ys, tolerance, xs=None, chunk=1024, partners=None):
         if self.face_test == "exact" and X.shape[1] == 2:
             return super().needed_candidates_all(X, S, ys, tolerance, xs, chunk)
         index_pointer, indices = S
@@ -83,7 +83,7 @@ class SquaredEuclideanPruning(SquaredEuclidean):
         owner = np.repeat(np.arange(len(X)), np.diff(index_pointer))
         normals, offsets = self._face_data(X[owner], xs, ys, tolerance)
         if self.face_test == "closest":
-            return _closest(owner, index_pointer, normals, offsets, ys, self.keep_share)
+            return _closest(owner, index_pointer, normals, offsets, ys, self.keep_share, partners)
         needed = np.ones(len(indices), bool)
         for a in range(len(X)):
             entries = slice(index_pointer[a], index_pointer[a + 1])
@@ -91,10 +91,13 @@ class SquaredEuclideanPruning(SquaredEuclidean):
         return needed
 
 
-def _closest(owner, index_pointer, normals, offsets, ys, keep_share):
+def _closest(owner, index_pointer, normals, offsets, ys, keep_share, partners=None):
     counts = np.diff(index_pointer)
-    centre = np.stack([np.bincount(owner, ys[:, i], len(counts)) for i in range(ys.shape[1])], axis=1)
-    centre /= np.maximum(counts, 1)[:, None]
+    if partners is None:
+        centre = np.stack([np.bincount(owner, ys[:, i], len(counts)) for i in range(ys.shape[1])], axis=1)
+        centre /= np.maximum(counts, 1)[:, None]
+    else:
+        centre = partners
     distance = (offsets - np.einsum("ij,ij->i", normals, centre[owner])) / np.linalg.norm(normals, axis=1)
     order = np.lexsort((distance, owner))
     rank = np.empty(len(owner), int)

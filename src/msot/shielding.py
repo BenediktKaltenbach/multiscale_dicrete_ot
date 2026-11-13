@@ -96,7 +96,7 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12, chunk=4096):
     search, dropped = S, None
     prune = getattr(cost, "needed_candidates_all", None)
     if prune is not None:
-        needed = prune(X, S, Y[t[indices]], tolerance)
+        needed = prune(X, S, Y[t[indices]], tolerance, partners=Y[t])
         if not needed.all():
             search = _subset(owner, indices, needed, len(X))
             dropped = _subset(owner, indices, ~needed, len(X))

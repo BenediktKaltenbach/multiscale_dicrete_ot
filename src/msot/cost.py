@@ -15,10 +15,11 @@ class FacePruning:
         """needed_candidates_all for a single x_A."""
         return self.needed_candidates_all(xA[None], (np.array([0, len(xs)]), np.arange(len(xs))), ys, tolerance, xs)
 
-    def needed_candidates_all(self, X, S, ys, tolerance, xs=None, chunk=1024):
+    def needed_candidates_all(self, X, S, ys, tolerance, xs=None, chunk=1024, partners=None):
         """Mask of the candidates whose half-plane is a face of the polygon of their x_A (Fig. 3).
 
-        S is CSR (index_pointer, indices) of candidates on X, ys their partners t(x_s). Unbounded or empty polygons
+        S is CSR (index_pointer, indices) of candidates on X, ys their partners t(x_s); partners t(x_A) are not
+        needed here (used by SquaredEuclideanPruning("closest")). Unbounded or empty polygons
         keep all candidates. Vectorised over x_A: candidate lists padded to the longest, in chunks of x_A.
         """
         index_pointer, indices = S

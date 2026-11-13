@@ -32,7 +32,7 @@ class CountedSquaredEuclidean(SquaredEuclidean):
         super().__init__(prune)
         self.calls = []
 
-    def needed_candidates_all(self, X, S, ys, tolerance, xs=None, chunk=1024):
+    def needed_candidates_all(self, X, S, ys, tolerance, xs=None, chunk=1024, partners=None):
         needed = super().needed_candidates_all(X, S, ys, tolerance, xs, chunk)
         if self.prune:
             self.calls.append({"points": len(X), "candidates": len(needed), "kept": int(needed.sum())})

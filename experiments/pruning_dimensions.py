@@ -50,8 +50,8 @@ class Counted:
     def __getattr__(self, name):
         return getattr(self.cost, name)
 
-    def needed_candidates_all(self, X, S, ys, tolerance):
-        needed = self.cost.needed_candidates_all(X, S, ys, tolerance)
+    def needed_candidates_all(self, X, S, ys, tolerance, partners=None):
+        needed = self.cost.needed_candidates_all(X, S, ys, tolerance, partners=partners)
         if self.cost.prune:
             self.calls.append({"points": len(X), "candidates": len(needed), "kept": int(needed.sum())})
         return needed
@@ -61,8 +61,8 @@ def cost_of(name):
     return Counted(SquaredEuclidean() if name == "off" else SquaredEuclideanPruning(name))
 
 
-def solve(HX, HY, X, Y, mu, name):
-    cost = cost_of(name)
+def solve(HX, HY, X, Y, mu, cost):
+    """Solves with a Counted cost and returns times, result and the recorded pruning and filter calls."""
     filter_calls.clear()
     start = perf_counter()
     pi, alpha, beta, info = solve_multiscale(HX, HY, cost, Cplex())
@@ -94,7 +94,7 @@ def main():
                 HX, HY = build_pair(X, mu, Y, nu)
                 hierarchy_time = perf_counter() - start
                 for name in VARIANTS[seed:] + VARIANTS[:seed]:
-                    result = solve(HX, HY, X, Y, mu, name)
+                    result = solve(HX, HY, X, Y, mu, cost_of(name))
                     result.update({"dimension": dimension, "kind": kind, "seed": seed, "pruning": name,
                                    "hierarchy time": hierarchy_time, "K": HX.K, "chunk": CHUNKS[dimension],
                                    "cells per level": [HX.number_of_cells(k) for k in range(HX.K + 1)],
