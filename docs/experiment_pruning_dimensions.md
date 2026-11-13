@@ -33,5 +33,44 @@ In 2D the Delaunay 1-ring has 6 points and only 5–16 % of them are redundant, 
 
 Identical cost and rounds in all variants. The exact run in 5D also had twice the solve time (125.5 s vs. 56.5 s) for the identical sequence of local problems, so timing noise in long runs can be large.
 
-## Results
-(to be filled in after the run)
+## Results (2026-11-13, commit 810a373, mains power, 36 runs)
+Figures in `experiments/results/pruning_dimensions/`: `pruning_dimensions_time`, `pruning_dimensions_ratio`, `pruning_dimensions_dropped`.
+
+**Correctness.** In every problem the three variants give the same cost, the same support of pi (8191 = 2n - 1), the same rounds per level and the same |N| in every round. Dual violation at most 1.1e-16. With the exact face test `filter_missed` never removes a pair (no needed candidate is dropped); with the closest heuristic it removes the pairs the reduced search wrongly reported as missed.
+
+**Problems.** Hierarchy 4096, about 1050, 270, 70, 1 cells in 4D and 4096, about 1035, 263, 67, 1 in 5D. 1-ring at level 0: 34.7 (4D uniform), 34.1 (4D clustered), 72.9 (5D uniform), 67.8 (5D clustered). |N| / |X| at level 0: 32–35 (4D), 66–70 (5D). Rounds per level from coarse to fine: 1, 3, 3–4, 4 (uniform), 1, 3–4, 4–5, 5–7 (clustered).
+
+**Times** (mean of 3 seeds, range in brackets; shield and solve summed over all rounds):
+
+| d | kind | pruning | total [s] | shield [s] | solve [s] | shield / off | total / off |
+|---|---|---|---|---|---|---|---|
+| 4 | uniform | off | 107.1 (104.0–111.7) | 79.0 | 27.3 | 1 | 1 |
+| 4 | uniform | exact | 161.0 (151.1–172.8) | 131.7 | 28.5 | 1.67 (1.61–1.69) | 1.50 |
+| 4 | uniform | closest | 84.2 (78.5–88.8) | 54.5 | 28.8 | 0.69 (0.67–0.72) | 0.79 |
+| 4 | clustered | off | 126.4 (115.4–133.9) | 101.2 | 24.5 | 1 | 1 |
+| 4 | clustered | exact | 194.3 (177.6–213.0) | 169.1 | 24.5 | 1.67 (1.58–1.73) | 1.54 |
+| 4 | clustered | closest | 99.0 (84.5–116.3) | 71.1 | 27.1 | 0.70 (0.66–0.78) | 0.78 |
+| 5 | uniform | off | 428.9 (402.8–457.4) | 322.6 | 104.6 | 1 | 1 |
+| 5 | uniform | exact | 369.7 (286.8–414.9) | 289.6 | 78.4 | 0.89 (0.76–0.97) | 0.86 |
+| 5 | uniform | closest | 294.2 (283.0–306.3) | 202.0 | 90.4 | 0.63 (0.62–0.64) | 0.69 |
+| 5 | clustered | off | 322.1 (308.4–333.3) | 267.8 | 52.8 | 1 | 1 |
+| 5 | clustered | exact | 286.7 (265.7–305.9) | 235.6 | 49.4 | 0.88 (0.85–0.92) | 0.89 |
+| 5 | clustered | closest | 216.2 (206.4–223.6) | 165.9 | 48.7 | 0.62 (0.62–0.62) | 0.67 |
+
+Hierarchy (not in the totals): 2.0 s / 2.2 s in 4D, 16.6 s / 10.3 s in 5D (uniform / clustered).
+
+**Dropped candidates and filter.**
+
+| d | kind | exact: no facet | closest: dropped | closest: missed pairs removed by the filter |
+|---|---|---|---|---|
+| 4 | uniform | 30.8 % | 38.8 % | 22 102 of 625 806 (3.5 %) |
+| 4 | clustered | 39.2 % | 38.8 % | 172 052 of 1 108 682 (15.5 %) |
+| 5 | uniform | 29.4 % | 39.4 % | 5 299 of 757 006 (0.7 %) |
+| 5 | clustered | 37.9 % | 39.4 % | 72 029 of 1 106 726 (6.5 %) |
+
+The share without facet grows towards the fine levels: 4–12 % at level 3, 13–25 % at level 2, 23–34 % at level 1, 31–41 % at level 0 (figure `pruning_dimensions_dropped`). Clustered points have more redundant half-spaces than uniform ones.
+
+**Reading.**
+- Pruning only pays off when the 1-ring is large. The exact face test (one LP and one Qhull call per x_A in Python) costs more than it saves at about 35 candidates in 4D (shield time 1.67x) and pays off a little at about 70 candidates in 5D (0.88x).
+- The vectorised closest heuristic is faster in all 12 problems: shield time 0.62–0.70x, total time 0.67–0.79x, a little more in 5D than in 4D. Its wrong drops cost only extra filter work (filter_missed stays exact); they are more frequent for clustered points (6.5–15.5 % of the missed pairs) than for uniform ones (0.7–3.5 %).
+- Solve times differ between variants for identical sequences of local problems (5D uniform: 60–119 s), so solve-time differences are timing noise. In 5D uniform seed 2 the exact run was fast in both solve (60.5 s) and shield (224.7 s vs. 318–326 s in the other seeds); the run order cannot explain this (exact was third there), so the 0.76 looks like an outlier and the mean ratio 0.89 is slightly optimistic.
