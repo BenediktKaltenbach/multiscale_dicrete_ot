@@ -137,7 +137,7 @@ def _add_level(H, parent):
     cell_of = parent[H.cell_of[k]]
     mass = np.bincount(parent, H.mass[k], minlength=n)
     weights = H.mass[0]
-    centroid = np.stack([np.bincount(cell_of, weights * H.points[:, i], minlength=n) for i in range(2)], axis=1)
+    centroid = np.stack([np.bincount(cell_of, weights * H.points[:, i], minlength=n) for i in range(H.points.shape[1])], axis=1)
     centroid /= np.bincount(cell_of, weights, minlength=n)[:, None]
     distance = np.linalg.norm(H.rep_points(k) - centroid[parent], axis=1)
     order = np.lexsort((distance, parent))
