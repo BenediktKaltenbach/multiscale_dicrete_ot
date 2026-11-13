@@ -76,7 +76,7 @@ The share without facet grows towards the fine levels: 4–12 % at level 3, 13�
 - Solve times differ between variants for identical sequences of local problems (5D uniform: 60–119 s), so solve-time differences are timing noise. In 5D uniform seed 2 the exact run was fast in both solve (60.5 s) and shield (224.7 s vs. 318–326 s in the other seeds); the run order cannot explain this (exact was third there), so the 0.76 looks like an outlier and the mean ratio 0.89 is slightly optimistic.
 
 ## Addendum: recall of the closest rule (2026-11-13, seed 0, no timing)
-Script `experiments/pruning_recall.py`, raw results `experiments/results/pruning_recall/recall.json`. Each problem is solved once without pruning; in every shield round the 1-ring half-spaces of every x_A are ranked by signed distance to a centre c and compared with the exact facets. Two centres: c = mean of the t(x_s) (the implemented rule) and c = t(x_A) = argmax_y pi(x_A, y). Recall = share of the facets among the kept half-spaces' facets, i.e. kept facets / all facets. A random choice of the same size has recall about equal to the keep share; a perfect ranking has min(1, share / facet share).
+Script `experiments/pruning_recall.py`, raw results `experiments/results/pruning_recall/recall.json`. Each problem is solved once without pruning; in every shield round the 1-ring half-spaces of every x_A are ranked by signed distance to a centre c and compared with the exact facets. Two centres: c = mean of the t(x_s) (the implemented rule) and c = t(x_A) = argmax_y pi(x_A, y). Recall = kept facets / all facets. A random choice of the same size has recall about equal to the keep share; a perfect ranking has min(1, share / facet share).
 
 Recall at keep share 0.6, level 0 (finest):
 
