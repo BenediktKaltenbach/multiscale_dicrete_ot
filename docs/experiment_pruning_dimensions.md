@@ -74,3 +74,20 @@ The share without facet grows towards the fine levels: 4–12 % at level 3, 13�
 - Pruning only pays off when the 1-ring is large. The exact face test (one LP and one Qhull call per x_A in Python) costs more than it saves at about 35 candidates in 4D (shield time 1.67x) and pays off a little at about 70 candidates in 5D (0.88x).
 - The vectorised closest heuristic is faster in all 12 problems: shield time 0.62–0.70x, total time 0.67–0.79x, a little more in 5D than in 4D. Its wrong drops cost only extra filter work (filter_missed stays exact); they are more frequent for clustered points (6.5–15.5 % of the missed pairs) than for uniform ones (0.7–3.5 %).
 - Solve times differ between variants for identical sequences of local problems (5D uniform: 60–119 s), so solve-time differences are timing noise. In 5D uniform seed 2 the exact run was fast in both solve (60.5 s) and shield (224.7 s vs. 318–326 s in the other seeds); the run order cannot explain this (exact was third there), so the 0.76 looks like an outlier and the mean ratio 0.89 is slightly optimistic.
+
+## Addendum: recall of the closest rule (2026-11-13, seed 0, no timing)
+Script `experiments/pruning_recall.py`, raw results `experiments/results/pruning_recall/recall.json`. Each problem is solved once without pruning; in every shield round the 1-ring half-spaces of every x_A are ranked by signed distance to a centre c and compared with the exact facets. Two centres: c = mean of the t(x_s) (the implemented rule) and c = t(x_A) = argmax_y pi(x_A, y). Recall = share of the facets among the kept half-spaces' facets, i.e. kept facets / all facets. A random choice of the same size has recall about equal to the keep share; a perfect ranking has min(1, share / facet share).
+
+Recall at keep share 0.6, level 0 (finest):
+
+| d | kind | facets | random | closest, mean of t(x_s) | closest, t(x_A) | perfect | c inside P: mean / t(x_A) | share for all facets (median) |
+|---|---|---|---|---|---|---|---|---|
+| 4 | uniform | 67.9 % | 60 % | 76.6 % | 74.3 % | 88 % | 85 % / 99 % | 0.89 / 0.91 |
+| 4 | clustered | 61.1 % | 60 % | 79.3 % | 78.5 % | 98 % | 75 % / 98 % | 0.86 / 0.86 |
+| 5 | uniform | 68.4 % | 60 % | 74.4 % | 72.4 % | 88 % | 83 % / 100 % | 0.94 / 0.95 |
+| 5 | clustered | 61.4 % | 60 % | 76.5 % | 77.3 % | 98 % | 69 % / 98 % | 0.91 / 0.89 |
+
+- The ranking gets about half of the way from a random choice to a perfect one at level 0. At the coarse levels nearly all candidates are facets (90–97 % at k = 3), so any choice of 60 % drops about a third of the facets there (recall 62–66 %).
+- t(x_A) lies inside P in 96–100 % of the cases (as cyclical monotonicity suggests), the mean of the t(x_s) only in 27–85 %. The recall is nevertheless the same (within 2 points): the distance to the boundary carries little information about whether a half-space is a facet. In d dimensions all hyperplanes pass through partners t(x_s) close to t(x_A); whether one is a facet depends mainly on its direction relative to the others.
+- Recall rises smoothly with the share (at level 0 from 41–47 % at 0.3 to 95–98 % at 0.9), with no knee. For at least 10 % of the x_A the last-ranked half-space is a facet, so no share below 1 keeps all facets; exactness always comes from `filter_missed`.
+- Consequence: 0.6 is not singled out by the geometry. It is a tuning parameter that trades search work against filter work; only timing can choose it. Using t(x_A) instead of the mean would not change the result, so the rule stays as implemented.
