@@ -112,5 +112,23 @@ Without pruning: total 83.5 s (uniform), 135.4 s (clustered; 93.6–163.6 s over
 - Below 0.6 the filter does most of the work: at 0.3 the search reports 5–6 times as many missed pairs as there are in the end, and the filter removes 82–83 % of them, yet the time hardly changes. A flat point test against the dropped candidates at the finest level is cheap compared with testing them in every cell along the tree.
 - 0.6 lies on the plateau. Lower shares gain at most a few percent, within the noise, at many times the filter work; 0.6 is kept. It also has the clearest meaning: about the share of facets at the finest level.
 
+## Addendum: clustered points in d = 2, 4, 5 in one session (2026-11-14, commit c4d2b7d, centre t(x_A), mains power)
+`experiments/pruning_clustered.py`, 27 runs: clustered points, seeds 0–2, d = 2 (n = 128², the problems of `pruning.py`) and d = 4, 5 (n = 4096, as above), off / exact / closest 60 %, order rotated per seed, no other jobs. Figure `pruning_summary_dimensions` (`plot_pruning_summary.py`). Dual violation <= 8.9e-10 in every run.
+
+| d | variant | total [s], mean (range) | shield [s] | total / off per seed |
+|---|---|---|---|---|
+| 2 | off | 52.9 (45.1–57.5) | 33.6 | 1 |
+| 2 | exact | 54.5 (47.0–59.4) | 35.5 | 0.99–1.06 |
+| 2 | closest | 206.0 (174.0–238.2) | 186.6 | 3.0–4.6 |
+| 4 | off | 89.7 (81.4–95.5) | 74.2 | 1 |
+| 4 | exact | 126.0 (117.5–137.4) | 109.2 | 1.33–1.44 |
+| 4 | closest | 67.3 (63.8–70.5) | 50.3 | 0.73–0.78 |
+| 5 | off | 319.0 (298.8–347.9) | 266.0 | 1 |
+| 5 | exact | 279.6 (268.9–288.1) | 228.9 | 0.83–0.91 |
+| 5 | closest | 223.5 (212.1–229.7) | 164.4 | 0.66–0.77 |
+
+- In 2D the closest rule is 3–4.6x slower: with 6 candidates it drops 2 (33.7 %), P opens up, and the filter has to remove 119–183 million missed pairs. The rule only pays where there are many half-spaces.
+- In 4D and 5D the clean session confirms the main run: closest 0.66–0.78x, exact facets 1.4x in 4D and 0.87x in 5D.
+
 ## Remark for the thesis (draft)
-In d = 4 and 5 the Delaunay 1-ring has about 35 and 70 points, and 30–40 % of their half-spaces are not facets of the polytope P(x_A) at the finest level. Because the dropped candidates are checked exactly at the leaves (`filter_missed`), any rule for choosing the search subset leaves N and the result unchanged, so the subset can be chosen by speed alone. Computing the facets exactly (one LP and one convex hull per x_A) does not pay off: 1.5x the total time in 4D, 0.86–0.89x in 5D. Keeping the 60 % of the half-spaces closest to t(x_A) instead, a cheap vectorised ranking, reduces the total time to about 0.6–0.8x (n = 4096, uniform and clustered points, 3 seeds each; 0.67–0.79x in the main run with the mean of the t(x_s) as centre, 0.61–0.69x in the 4D sweep with t(x_A)); any share between 0.3 and 0.6 does about equally well. In 2D, with 6 candidates, pruning gives no gain. The ranking predicts facets only moderately (recall at 0.6 is 72–79 % at the finest level against 60 % for a random choice), yet the search with the kept 60 % reports only 1–34 % more cells than with all facets (1–18 % with the mean as centre, 13 % uniform and 34 % clustered with t(x_A) in 4D), which the filter removes. Presumably the facets it misses are mostly small ones whose omission barely enlarges P (not measured directly).
+In d = 4 and 5 the Delaunay 1-ring has about 35 and 70 points, and 30–40 % of their half-spaces are not facets of the polytope P(x_A) at the finest level. Because the dropped candidates are checked exactly at the leaves (`filter_missed`), any rule for choosing the search subset leaves N and the result unchanged, so the subset can be chosen by speed alone. Computing the facets exactly (one LP and one convex hull per x_A) does not pay off: 1.5x the total time in 4D, 0.86–0.89x in 5D. Keeping the 60 % of the half-spaces closest to t(x_A) instead, a cheap vectorised ranking, reduces the total time to about 0.6–0.8x (n = 4096, uniform and clustered points, 3 seeds each; 0.67–0.79x in the main run with the mean of the t(x_s) as centre, 0.61–0.69x in the 4D sweep with t(x_A)); any share between 0.3 and 0.6 does about equally well. In 2D, with 6 candidates, pruning gives no gain, and the closest rule makes the run 3–4.6x slower, because dropping 2 of 6 half-spaces opens up P and leaves the work to the filter. The ranking predicts facets only moderately (recall at 0.6 is 72–79 % at the finest level against 60 % for a random choice), yet the search with the kept 60 % reports only 1–34 % more cells than with all facets (1–18 % with the mean as centre, 13 % uniform and 34 % clustered with t(x_A) in 4D), which the filter removes. Presumably the facets it misses are mostly small ones whose omission barely enlarges P (not measured directly).
