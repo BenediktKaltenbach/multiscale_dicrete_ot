@@ -4,7 +4,7 @@ Thesis experiment, run 2026-11-12, directly after `docs/experiment_candidate_set
 Raw results in `experiments/results/pruning/` (`runs.json`, figures as PDF and 600 ppi PNG; not under version control).
 
 ## Question
-Pruning (`cost.FacePruning`, Fig. 3 in Schmitzer 2016) drops the candidates x_s whose half-plane {y : <x_s - x_A, y - t(x_s)> <= 0} (5.5) is no face of the polygon P(x_A); they cannot change Y_hat(x_A). Does skipping them in the search pay for the face test, on the three point kinds?
+Pruning (`cost.FacePruning`, Fig. 3 in Schmitzer 2016) drops the candidates x_s whose half-plane {y : <x_s - x_A, y - t(x_s)> <= 0} (5.5) is no face of the polygon U(x_A); they cannot change Y_hat(x_A). Does skipping them in the search pay for the face test, on the three point kinds?
 
 ## Setup
 Identical to `docs/experiment_candidate_sets.md` (code and machine, problems with the same seeds and generators, mesh hierarchy, solver, measurements, run protocol, verification), with these differences:
@@ -39,6 +39,6 @@ Dropped share per level (mean over seeds, figure `pruning_dropped`): uniform 13�
 - Pruning is exact in practice: identical N, iterations and cost, and the exact leaf filter never had to correct the search.
 - It does not save time. On random points the shield time grows by 2–12 % (mean +7 %) in every seed: the face test costs more than the search over the 5–16 % dropped candidates saves. On the grid it is neutral (0.96–1.03).
 - The total time follows the shield time but is noisier: the solve time differs by up to 11 % between the two runs of a problem although CPLEX solves exactly the same sequence of local problems (e.g. grid 21.9 s vs. 19.5 s on average). Differences in total time below about ±10 % are therefore not significant at 3 seeds.
-- With the Delaunay 1-ring only a small share of the candidates is redundant (the 1-ring of a planar mesh has 6 points on average, and most of them are faces of P(x_A)), so there is little to prune. Pruning stays off by default. This agrees with the earlier measurements (`docs/rationale.md` §4b) and with the standalone check in higher dimensions, where the redundant share rises to 31–42 % for d = 3 to 5.
+- With the Delaunay 1-ring only a small share of the candidates is redundant (the 1-ring of a planar mesh has 6 points on average, and most of them are faces of U(x_A)), so there is little to prune. Pruning stays off by default. This agrees with the earlier measurements (`docs/rationale.md` §4b) and with the standalone check in higher dimensions, where the redundant share rises to 31–42 % for d = 3 to 5.
 
 Figures (in `experiments/results/pruning/`): `pruning_time` (total and shield time), `pruning_ratio` (shield time on / off per seed), `pruning_dropped` (dropped share per level).

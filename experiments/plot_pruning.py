@@ -1,8 +1,8 @@
 """Thesis figure: shielding fences of one x_A and the candidates that pruning drops (squared Euclidean cost).
 
 Left: X with its Delaunay mesh, x_A and its 1-ring candidates S(x_A). Right: Y around t(x_A); for each candidate the
-fence {y : <x_s - x_A, y - t(x_s)> = 0} (5.5), the unshielded polygon P(x_A) and the missed targets Y_hat = (Y in P) without t(x_A), which is in spt pi already.
-Points of Y in P (Y_hat) are not shielded by any candidate. A candidate is dropped when its fence is no face of P (SquaredEuclidean(prune=True).needed_candidates).
+fence {y : <x_s - x_A, y - t(x_s)> = 0} (5.5), the unshielded polygon U(x_A) and the missed targets Y_hat = (Y in U(x_A)) without t(x_A), which is in spt pi already.
+Points of Y in U(x_A) (Y_hat) are not shielded by any candidate. A candidate is dropped when its fence is no face of U(x_A) (SquaredEuclidean(prune=True).needed_candidates).
 t is the exact optimal assignment between equal masses on uniform random points.
 """
 import shutil
@@ -42,7 +42,7 @@ def fences(X, Y, t, a, S):
 
 
 def polygon(normals, ys, centre, box):
-    """P = {y : <n_s, y - y_s> <= 0} intersected with the plotting box, as ordered vertices."""
+    """U = {y : <n_s, y - y_s> <= 0} intersected with the plotting box, as ordered vertices."""
     (x0, x1), (y0, y1) = box
     halfspaces = [np.r_[n, -n @ y] for n, y in zip(normals, ys)]
     halfspaces += [[-1, 0, x0], [1, 0, -x1], [0, -1, y0], [0, 1, -y1]]
@@ -57,7 +57,7 @@ def figure(seed, a, path=None):
     target = Y[t[a]]
     half = 1.6 * np.abs(ys - target).max()
     box = ((target[0] - half, target[0] + half), (target[1] - half, target[1] + half))
-    P = polygon(normals[needed], ys[needed], chebyshev(normals[needed], ys[needed], box), box)
+    unshielded = polygon(normals[needed], ys[needed], chebyshev(normals[needed], ys[needed], box), box)
 
     plt.rcParams.update({"font.family": "serif", "font.size": 9, "axes.linewidth": 0.5, "axes.edgecolor": MUTED})
     if LATEX:
@@ -85,7 +85,7 @@ def figure(seed, a, path=None):
     left.set(xlim=(xa[0] - hx, xa[0] + hx), ylim=(xa[1] - hx, xa[1] + hx), aspect="equal", xticks=[], yticks=[])
     left.set_title(r"(a) $X$: candidates $x_s \in S(x_A)$", fontsize=9)
 
-    right.fill(*P.T, color=REGION, zorder=0, lw=0)
+    right.fill(*unshielded.T, color=REGION, zorder=0, lw=0)
     (bx0, bx1), (by0, by1) = box
     for n, y, keep in zip(normals, ys, needed):
         direction = np.array([-n[1], n[0]]) / np.linalg.norm(n)
@@ -104,16 +104,16 @@ def figure(seed, a, path=None):
     right.scatter(*Y[inside].T, s=10, color=INK, zorder=3.5, lw=0, marker="D")
     right.scatter(*target, s=24, color=INK, zorder=5, lw=0, marker="D")
     right.annotate(r"$t(x_A)$", target, xytext=(4, -11), textcoords="offset points", color=INK)
-    centre = P.mean(axis=0)
-    right.annotate(r"$P(x_A)$", centre, xytext=(-14, 10), textcoords="offset points", color=KEPT)
+    centre = unshielded.mean(axis=0)
+    right.annotate(r"$U(x_A)$", centre, xytext=(-14, 10), textcoords="offset points", color=KEPT)
     right.set(xlim=(bx0, bx1), ylim=(by0, by1), aspect="equal", xticks=[], yticks=[])
     right.set_title(r"(b) $Y$: fences through $y_s = t(x_s)$", fontsize=9)
 
     handles = [plt.Line2D([], [], color=KEPT, lw=1.0, marker="o", ms=4, label="kept fence"),
                plt.Line2D([], [], color=DROPPED, lw=1.0, ls=(0, (3, 2)), marker="s", mfc="white", ms=4,
                           label="dropped fence"),
-               matplotlib.patches.Patch(color=REGION, label=r"unshielded $P(x_A)$"),
-               plt.Line2D([], [], color=INK, lw=0, marker="D", ms=3, label=r"$\hat Y(x_A) = Y \cap P(x_A)$")]
+               matplotlib.patches.Patch(color=REGION, label=r"unshielded $U(x_A)$"),
+               plt.Line2D([], [], color=INK, lw=0, marker="D", ms=3, label=r"$\hat Y(x_A) = Y \cap U(x_A)$")]
     fig.legend(handles=handles, loc="outside lower center", ncol=4, frameon=False, fontsize=8,
                handlelength=1.8, handletextpad=0.5, columnspacing=1.2)
     if path:
@@ -122,7 +122,7 @@ def figure(seed, a, path=None):
 
 
 def chebyshev(normals, ys, box):
-    """Centre of the largest disc inside P and the box, an interior point for HalfspaceIntersection."""
+    """Centre of the largest disc inside U and the box, an interior point for HalfspaceIntersection."""
     (x0, x1), (y0, y1) = box
     A = np.vstack([normals, [[-1, 0], [1, 0], [0, -1], [0, 1]]])
     b = np.r_[np.einsum("sd,sd->s", normals, ys), -x0, x1, -y0, y1]
