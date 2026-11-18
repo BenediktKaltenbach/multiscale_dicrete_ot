@@ -63,9 +63,9 @@ def gaussian_masses(points, rng, n_gauss=4, eigenvalue_range=(1.8, 100.0), floor
 class SquaredEuclideanPruning(SquaredEuclidean):
     """SquaredEuclidean with pruning in any dimension; the half-spaces are those of (5.5), as in 2D.
 
-    face_test "exact": keep the candidates whose half-space is a facet of P(x_A), found per x_A with Qhull
+    face_test "exact": keep the candidates whose half-space is a facet of U(x_A), found per x_A with Qhull
     (Chebyshev centre c by an LP, facets = vertices other than 0 of the convex hull of 0 and the dual points
-    n_s / (b_s - <n_s, c>)). P without a finite inscribed ball or degenerate hulls keep all candidates. In 2D the vectorised polygon test of FacePruning is used.
+    n_s / (b_s - <n_s, c>)). U(x_A) without a finite inscribed ball or degenerate hulls keep all candidates. In 2D the vectorised polygon test of FacePruning is used.
     face_test "closest": keep the share keep_share of the half-spaces closest to t(x_A) (partners; without them
     the mean of the t(x_s) as an estimate); this may drop needed candidates, which only costs search work
     (filter_missed keeps the result exact).
@@ -106,7 +106,7 @@ def _closest(owner, index_pointer, normals, offsets, ys, keep_share, partners=No
 
 
 def _facets(normals, offsets):
-    """Which half-spaces {<normal, y> <= offset} are facets of their intersection P; all if P is unbounded or flat."""
+    """Which half-spaces {<normal, y> <= offset} are facets of their intersection U; all if U is unbounded or flat."""
     keep_all = np.ones(len(normals), bool)
     if len(normals) <= normals.shape[1]:
         return keep_all
@@ -118,7 +118,7 @@ def _facets(normals, offsets):
         return keep_all
     dual = normals / (offsets - normals @ centre.x[:-1])[:, None]
     try:
-        hull = ConvexHull(np.vstack([dual, np.zeros(normals.shape[1])]))  # the origin covers unbounded P
+        hull = ConvexHull(np.vstack([dual, np.zeros(normals.shape[1])]))  # the origin covers unbounded U
     except QhullError:
         return keep_all
     needed = np.zeros(len(normals), bool)

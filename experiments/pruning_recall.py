@@ -87,7 +87,7 @@ def summary(levels):
             record = level[centre]
             full = np.concatenate(record["full recall share"])
             entry[centre] = {"recall per share": dict(zip(SHARES.tolist(), (record["kept facets"] / level["facets"]).tolist())),
-                             "centre inside P": record["inside"] / points,
+                             "centre inside U(x_A)": record["inside"] / points,
                              "share for full recall": {"median": float(np.median(full)),
                                                        "90 %": float(np.quantile(full, 0.9)),
                                                        "mean": float(full.mean())}}
@@ -123,7 +123,7 @@ def main():
                     print(f"d = {dimension} {kind:9s} seed {seed} k = {level['k']}: facets "
                           f"{100 * level['facets'] / level['candidates']:4.1f} %  " + "  ".join(
                               f"{centre}: recall at 0.6 {100 * level[centre]['recall per share'][0.6]:5.1f} %, "
-                              f"inside {100 * level[centre]['centre inside P']:5.1f} %, "
+                              f"inside {100 * level[centre]['centre inside U(x_A)']:5.1f} %, "
                               f"full recall median {level[centre]['share for full recall']['median']:.2f}"
                               for centre in CENTRES), flush=True)
     msot.multiscale.shield = shield
