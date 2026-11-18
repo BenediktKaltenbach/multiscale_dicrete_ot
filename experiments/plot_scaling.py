@@ -19,7 +19,7 @@ from thesis_style import ACCENT, FAINT, INK, KINDS, MUTED, TEXT_WIDTH, save, sty
 
 KIND_LOOKS = {"grid": dict(marker="s", linestyle="--"), "uniform": dict(marker="o", linestyle="-"),
               "clustered": dict(marker="^", linestyle=":")}
-DENSE_LOOKS = {"pot": dict(color=MUTED, marker="D", label="POT emd (dense)"),
+DENSE_LOOKS = {"pot": dict(color=MUTED, marker="D", label="POT (dense)"),
                "cplex dense": dict(color=INK, marker="x", label="CPLEX (dense)")}
 SHARES = {"solve time": (ACCENT, "local solver"), "shield time": (MUTED, "shield"),
           "hierarchy time": (INK, "hierarchy"), "other time": (FAINT, "other")}
@@ -66,12 +66,14 @@ def time_figure(runs, folder, guides):
         sizes = np.array([min(run["n"] for run in runs), max(run["n"] for run in runs)])
         anchor = np.mean([run["total time"] for run in runs if run["n"] == sizes[0]])
         for slope, linestyle in ((1, (0, (1, 2))), (2, (0, (4, 3)))):
+            end = anchor * (sizes[1] / sizes[0]) ** slope
             axis.plot(sizes, anchor * (sizes / sizes[0]) ** slope, color=FAINT, lw=0.8, linestyle=linestyle, zorder=1)
-            handles.append(plt.Line2D([], [], color=FAINT, lw=0.8, linestyle=linestyle, label=f"slope {slope}"))
+            axis.annotate(f"slope {slope}", (sizes[1], end), xytext=(4, 0), textcoords="offset points", va="center",
+                          color=MUTED, fontsize=8)
     axis.set_xlabel(r"$n = |X| = |Y|$")
     axis.set_ylabel("time [s]")
-    fig.legend(handles=handles, loc="outside lower center", ncols=len(handles), frameon=False, handletextpad=0.4,
-               columnspacing=1.2)
+    fig.legend(handles=handles, loc="outside lower center", ncols=len(handles), frameon=False, handlelength=1.6,
+               handletextpad=0.3, columnspacing=0.8)
     save(fig, folder, "scaling_time_guides" if guides else "scaling_time")
 
 
@@ -86,6 +88,8 @@ def sparsity_figure(runs, folder):
             scatter(axis, [run["n"] for run in own], [value(run) for run in own], look, ACCENT)
             axis.plot(*series(own, value), color=ACCENT, lw=0.8, linestyle=look["linestyle"])
         axis.set_xscale("log", base=2)
+        axis.set_xticks(sorted({run["n"] for run in runs})[::2])
+        axis.minorticks_off()
         axis.set_ylim(0, 1.1 * max(value(run) for run in runs))
         axis.set_xlabel(r"$n$")
         axis.set_ylabel(label)
