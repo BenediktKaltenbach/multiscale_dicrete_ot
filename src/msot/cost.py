@@ -21,10 +21,10 @@ class SquaredEuclidean:
         return self.needed_candidates_all(xA[None], (np.array([0, len(xs)]), np.arange(len(xs))), ys, tolerance, xs)
 
     def needed_candidates_all(self, X, S, ys, tolerance, xs=None, chunk=1024):
-        """Mask of the candidates whose half-plane (5.5) is a face of the polytope P of their x_A (Fig. 3).
+        """Mask of the candidates whose half-plane (5.5) is a face of the unshielded polytope U(x_A) of their x_A (Fig. 3).
 
         S is CSR (index_pointer, indices) of candidates on X, ys their partners t(x_s). The others are implied by
-        the rest and leave Y_hat unchanged. Unbounded P (q <= 0) or empty P (possible for a non-optimal coupling)
+        the rest and leave Y_hat unchanged. Unbounded U(x_A) (q <= 0) or empty U(x_A) (possible for a non-optimal coupling)
         keeps all. Vectorised over x_A: candidate lists padded to the longest, in chunks of x_A.
         """
         index_pointer, indices = S
