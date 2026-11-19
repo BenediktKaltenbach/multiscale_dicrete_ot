@@ -32,7 +32,7 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 ```
 
 ## Interfaces
-- `solve_local(rows, columns, c, mu, nu, state=None) -> (pi, alpha, beta, state)`. Here (rows, columns) are the entries of N and c their costs, pi is a scipy COO matrix, and state is opaque, backend-specific warm-start data.
+- `solve_local(rows, columns, c, mu, nu, state=None, start=None) -> (pi, alpha, beta, state)`. Here (rows, columns) are the entries of N and c their costs, pi is a scipy COO matrix, and state is opaque, backend-specific warm-start data. start is an optional coupling on N to begin from when there is no state (a hint; the result does not depend on it).
 - `shield(pi, S, X, Yh, k, cost, tolerance) -> (rows, columns)`, X the points of X_k.
 - `solve_multiscale(HX, HY, cost, solver, tolerance, max_iterations, candidates=None, dilation=True) -> (pi, alpha, beta, info)`; `info` holds per level the cells, |N1| and the history of `solve_sparse` (C, |N|, solve and shield time per iteration).
 - `solve_dense(X, Y, mu, nu, cost, solver)`: the dense problem with the same solver, as reference.
@@ -58,7 +58,8 @@ notebooks/            # optional, visual exploration only; imports msot, no algo
 - POT `ot.emd` (optional dependency `reference`): independent dense check (network simplex, floats); the tests use `solve_dense` with CPLEX.
 - CPLEX (`solvers/cplex.py`, dependency `cplex` + `docplex`; the full version needs the academic CPLEX Studio and `docplex config --upgrade <CPLEX_Studio path>`, the PyPI package alone is the Community Edition, limited to 1000 variables): network optimizer (network simplex, as Schmitzer). Each entry of N is an arc x -> y with +1 in the row of x and -1 in the row of y, so the whole LP is a pure network; alpha = dual of the x rows, beta = -(dual of the y rows). spt pi = all basic columns including degenerate zeros. One thread, optimality tolerance 1e-9.
 - Integer masses are solved exactly: the transport matrix is totally unimodular, so every basic solution is integral; the values are rounded and the marginals checked exactly, and refined N1 stay exactly feasible on every level. Float masses are scaled to mean mass 1 (tolerances are absolute).
-- Warm start (`Cplex(warm_start=True)`, default): one persistent model per `solve_sparse`; new entries of N are added as columns, only nonbasic columns outside N are deleted, and CPLEX continues from the current basis. The first solve of each level is cold.
+- Warm start (`Cplex(warm_start=True)`, default): one persistent model per `solve_sparse`; new entries of N are added as columns, only nonbasic columns outside N are deleted, and CPLEX continues from the current basis.
+- North-west start (`solve_multiscale(..., north_west=True)`, default): the first solve of each level starts from `multiscale.north_west_start` of the coarser coupling, a coupling inside refine(spt pi) built by the north-west corner rule; `Cplex` turns it into a starting basis, a spanning tree of the graph of N that prefers its support (`cplex.start_basis`). `north_west=False` gives the cold first solve.
 - HiGHS (highspy) was used until 2026-10-17 and removed to keep the code small; its measurements are kept in `rationale.md`.
 
 ## Order of implementation (status 2026-10-17)
