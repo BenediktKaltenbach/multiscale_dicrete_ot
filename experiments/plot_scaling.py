@@ -1,7 +1,8 @@
 """Thesis figures for experiments/scaling.py (conventions in docs/figures.md).
 
-scaling_time: total time against n (log-log), one marker per run, mean per n as a thin line; dense references
-(POT, CPLEX on all of X x Y) as their own series. scaling_time_guides: the same with guide lines of slope 1 and 2.
+scaling_time: total time against n (log-log), one panel per kind, one marker per run, mean per n as a thin line;
+multiscale and the dense references (POT, CPLEX on all of X x Y) on the same problems.
+scaling_time_guides: the same with guide lines of slope 1 and 2.
 scaling_sparsity: |N| / |X| and rounds of Alg. 4.1 at level 0 against n.
 scaling_breakdown: shares of solve, shield, hierarchy and other time in the total, mean over seeds, one panel per kind.
 Prints the fitted exponents b of time = a n^b.
@@ -23,6 +24,7 @@ DENSE_LOOKS = {"pot": dict(color=MUTED, marker="D", label="POT (dense)"),
                "cplex dense": dict(color=INK, marker="x", label="CPLEX (dense)")}
 SHARES = {"solve time": (ACCENT, "local solver"), "shield time": (MUTED, "shield"),
           "hierarchy time": (INK, "hierarchy"), "other time": (FAINT, "other")}
+SIZES_SHOWN = [2**10, 2**13, 2**16]
 
 
 def series(runs, value):
@@ -41,39 +43,37 @@ def scatter(axis, sizes, values, look, color):
 
 
 def time_figure(runs, folder, guides):
-    fig, axis = plt.subplots(figsize=(TEXT_WIDTH, 0.55 * TEXT_WIDTH), layout="constrained")
-    handles = []
-    for kind in KINDS:
+    fig, axes = plt.subplots(1, len(KINDS), figsize=(TEXT_WIDTH, 0.42 * TEXT_WIDTH), layout="constrained",
+                             sharex=True, sharey=True)
+    multiscale = dict(color=ACCENT, marker="o", label="multiscale")
+    for axis, kind in zip(axes, KINDS):
         own = [run for run in runs if run["kind"] == kind]
-        look = KIND_LOOKS[kind]
-        scatter(axis, [run["n"] for run in own], [run["total time"] for run in own], look, ACCENT)
-        axis.plot(*series(own, lambda run: run["total time"]), color=ACCENT, lw=0.8, linestyle=look["linestyle"])
-        handles.append(plt.Line2D([], [], color=ACCENT, lw=0.8, linestyle=look["linestyle"], marker=look["marker"],
-                                  markersize=3.5, markerfacecolor="white" if look["marker"] in "s^" else ACCENT,
-                                  label=kind))
-    for name, look in DENSE_LOOKS.items():
-        own = [run for run in runs if name in run]
-        if not own:
-            continue
-        scatter(axis, [run["n"] for run in own], [run[name]["time"] for run in own], look, look["color"])
-        axis.plot(*series(own, lambda run: run[name]["time"]), color=look["color"], lw=0.8)
-        handles.append(plt.Line2D([], [], color=look["color"], lw=0.8, marker=look["marker"], markersize=3.5,
-                                  markerfacecolor="white" if look["marker"] == "D" else look["color"],
-                                  label=look["label"]))
-    axis.set_xscale("log", base=2)
-    axis.set_yscale("log")
-    if guides:
-        sizes = np.array([min(run["n"] for run in runs), max(run["n"] for run in runs)])
-        anchor = np.mean([run["total time"] for run in runs if run["n"] == sizes[0]])
-        for slope, linestyle in ((1, (0, (1, 2))), (2, (0, (4, 3)))):
-            end = anchor * (sizes[1] / sizes[0]) ** slope
-            axis.plot(sizes, anchor * (sizes / sizes[0]) ** slope, color=FAINT, lw=0.8, linestyle=linestyle, zorder=1)
-            axis.annotate(f"slope {slope}", (sizes[1], end), xytext=(4, 0), textcoords="offset points", va="center",
-                          color=MUTED, fontsize=8)
-    axis.set_xlabel(r"$n = |X| = |Y|$")
-    axis.set_ylabel("time [s]")
-    fig.legend(handles=handles, loc="outside lower center", ncols=len(handles), frameon=False, handlelength=1.6,
-               handletextpad=0.3, columnspacing=0.8)
+        for name, look in (("total time", multiscale), *DENSE_LOOKS.items()):
+            time = (lambda run: run["total time"]) if name == "total time" else (lambda run: run[name]["time"])
+            measured = [run for run in own if name in run]
+            scatter(axis, [run["n"] for run in measured], [time(run) for run in measured], look, look["color"])
+            axis.plot(*series(measured, time), color=look["color"], lw=0.8)
+        if guides:
+            sizes = np.array([min(run["n"] for run in own), max(run["n"] for run in own)])
+            anchor = np.mean([run["total time"] for run in own if run["n"] == sizes[0]])
+            for slope, linestyle in ((1, (0, (1, 2))), (2, (0, (4, 3)))):
+                axis.plot(sizes, anchor * (sizes / sizes[0]) ** slope, color=FAINT, lw=0.8, linestyle=linestyle,
+                          zorder=1)
+                if kind == "uniform":
+                    axis.annotate(f"slope {slope}", (sizes[1], anchor * (sizes[1] / sizes[0]) ** slope),
+                                  xytext=(-2, -4), textcoords="offset points", ha="right", va="top", color=MUTED,
+                                  fontsize=8)
+        axis.set_xscale("log", base=2)
+        axis.set_yscale("log")
+        axis.set_xticks(SIZES_SHOWN)
+        axis.minorticks_off()
+        axis.set_title(kind, fontsize=9)
+        axis.set_xlabel(r"$n$")
+    axes[0].set_ylabel("time [s]")
+    handles = [plt.Line2D([], [], color=look["color"], lw=0.8, marker=look["marker"], markersize=3.5,
+                          markerfacecolor="white" if look["marker"] == "D" else look["color"], label=look["label"])
+               for look in (multiscale, *DENSE_LOOKS.values())]
+    fig.legend(handles=handles, loc="outside lower center", ncols=len(handles), frameon=False)
     save(fig, folder, "scaling_time_guides" if guides else "scaling_time")
 
 
@@ -127,11 +127,12 @@ def breakdown_figure(runs, folder):
 def report(runs):
     for kind in KINDS:
         own = [run for run in runs if run["kind"] == kind]
-        print(f"{kind:9s} multiscale b = {exponent(*series(own, lambda run: run['total time'])):.2f}")
-    for name in DENSE_LOOKS:
-        own = [run for run in runs if name in run]
-        if len({run["n"] for run in own}) > 1:
-            print(f"{name:11s} dense      b = {exponent(*series(own, lambda run: run[name]['time'])):.2f}")
+        line = f"{kind:9s} b: multiscale {exponent(*series(own, lambda run: run['total time'])):.2f}"
+        for name in DENSE_LOOKS:
+            measured = [run for run in own if name in run]
+            if len({run["n"] for run in measured}) > 1:
+                line += f", {name} {exponent(*series(measured, lambda run: run[name]['time'])):.2f}"
+        print(line)
     worst = max(run["dual violation"] for run in runs)
     differences = [run[name]["relative cost difference"] for run in runs for name in DENSE_LOOKS if name in run]
     print(f"max dual violation {worst:.1e}, max relative cost difference {max(differences, default=0):.1e}")
