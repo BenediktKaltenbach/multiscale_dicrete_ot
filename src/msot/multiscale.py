@@ -55,6 +55,37 @@ def dilate(N, neighbours, size_y):
     return unique_entries(np.concatenate([rows, np.repeat(rows, counts)]), np.concatenate([columns, ring]), size_y)
 
 
+def north_west(first, amount_first, second, amount_second):
+    """North-west corner rule: the monotone coupling of two lists with equal total amount.
+
+    Returns (index into first, index into second, amount) for each piece of the coupling.
+    """
+    ends_first, ends_second = np.cumsum(amount_first), np.cumsum(amount_second)
+    ends = np.union1d(ends_first, ends_second)
+    amount = np.diff(ends, prepend=0)
+    return first[np.searchsorted(ends_first, ends)], second[np.searchsorted(ends_second, ends)], amount
+
+
+def north_west_start(pi, HX, HY, k):
+    """A coupling at scale k inside refine(spt pi), pi the coupling at scale k + 1, by the north-west rule: the
+    children of each cell of X share the entries of pi in its row, likewise in Y for the columns, and within each
+    entry of pi the pieces of both sides are coupled. Exact for integer masses."""
+    pi = pi.tocoo()
+    entries = np.arange(len(pi.data))
+    split = []
+    for H, coarse in ((HX, pi.row), (HY, pi.col)):
+        children = np.argsort(H.parent[k], kind="stable")
+        by_cell = np.argsort(coarse, kind="stable")
+        child, entry, amount = north_west(children, H.mass[k][children], entries[by_cell], pi.data[by_cell])
+        split.append((child[amount > 0], entry[amount > 0], amount[amount > 0]))
+    (x, entry_x, amount_x), (y, entry_y, amount_y) = split
+    order_x, order_y = np.argsort(entry_x, kind="stable"), np.argsort(entry_y, kind="stable")
+    rows, columns, amount = north_west(x[order_x], amount_x[order_x], y[order_y], amount_y[order_y])
+    keep = amount > 0
+    return coo_matrix((amount[keep], (rows[keep], columns[keep])),
+                      shape=(HX.number_of_cells(k), HY.number_of_cells(k)))
+
+
 def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, candidates=None, dilation=True):
     """Alg. 4.6, starting from the trivial problem at level K.
 

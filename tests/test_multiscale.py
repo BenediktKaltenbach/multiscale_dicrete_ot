@@ -6,7 +6,7 @@ from scipy.sparse import coo_matrix
 from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair, build_pair_quadtree
 from msot.mesh import sector_neighbours
-from msot.multiscale import dilate, refine, solve_multiscale
+from msot.multiscale import dilate, north_west_start, refine, solve_multiscale
 from msot.problems import make_problem
 from msot.shielding import shield
 from msot.solvers.base import solve_dense
@@ -62,6 +62,20 @@ class TestSolveMultiscale(unittest.TestCase):
         for x, y in zip(rows.tolist(), columns.tolist()):
             expected |= {(x, int(z)) for z in indices[index_pointer[y]:index_pointer[y + 1]]}
         self.assertEqual({(int(a), int(b)) for a, b in dilated}, expected)
+
+    def test_north_west_start(self):
+        cost = SquaredEuclidean()
+        for kind in ["uniform", "clustered", "grid"]:
+            with self.subTest(kind=kind):
+                X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
+                HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
+                coarse = solve_dense(HX.rep_points(1), HY.rep_points(1), HX.mass[1], HY.mass[1], cost,
+                                     Cplex(warm_start=False))[0]
+                start = north_west_start(coarse, HX, HY, 0)
+                self.assertTrue(np.array_equal(np.bincount(start.row, start.data, len(mu)), mu))
+                self.assertTrue(np.array_equal(np.bincount(start.col, start.data, len(nu)), nu))
+                refined = set(zip(*(entries.tolist() for entries in refine(coarse, HX, HY, 0))))
+                self.assertLessEqual(set(zip(start.row.tolist(), start.col.tolist())), refined)
 
     def test_quadtree(self):
         for kind in ["clustered", "grid"]:
