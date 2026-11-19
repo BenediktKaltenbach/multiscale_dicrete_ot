@@ -70,9 +70,9 @@ def time_figure(runs, folder, guides):
         if guides:
             sizes = np.array([min(run["n"] for run in own), max(run["n"] for run in own)])
             anchor = np.mean([run["total time"] for run in own if run["n"] == sizes[0]])
-            for slope, linestyle in ((1, (0, (1, 2))), (2, (0, (4, 3)))):
+            for slope in (1, 2):
                 line = np.column_stack([sizes, anchor * (sizes / sizes[0]) ** slope])
-                axis.plot(*line.T, color=FAINT, lw=0.8, linestyle=linestyle, zorder=1)
+                axis.plot(*line.T, color=FAINT, lw=0.8, linestyle=(0, (4, 3)), zorder=1)
                 if axis is axes[0]:
                     x = sizes[1] / 2**0.6
                     y = anchor * (x / sizes[0]) ** slope
