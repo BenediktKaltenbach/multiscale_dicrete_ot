@@ -37,7 +37,7 @@ def level0(runs, variants, folder, suffix):
     strip_plot(left, runs, variants, "S", lambda run: len(run["levels"][-1]["history"]), "iterations at level 0")
     left.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
     strip_plot(right, runs, variants, "S", lambda run: run["levels"][-1]["history"][-1]["N"] / run["cells per level"][0],
-               r"$|N| \,/\, |X|$ at level 0")
+               r"$|\mathcal{N}| \,/\, |X|$ at level 0")
     strip_legend(fig, variants)
     save(fig, folder, f"candidate_sets_level0{suffix}")
 
