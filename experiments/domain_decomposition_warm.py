@@ -6,7 +6,7 @@ The starting basis is a spanning tree of the bipartite graph of N1 that prefers 
 If spt pi is a forest, the basis reproduces pi exactly; otherwise CPLEX starts from a nearby basis.
 Writes results/domain_decomposition/warm.json.
 
-python experiments/domain_decomposition_warm.py [n, default 16384]
+python experiments/domain_decomposition_warm.py [n, default 16384] [sweep counts, default 0,1,3]
 """
 import json
 import sys
@@ -52,6 +52,7 @@ def solve(model):
 
 def main():
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 16384
+    sweep_counts = tuple(int(count) for count in sys.argv[2].split(",")) if len(sys.argv) > 2 else SWEEPS
     path = RESULTS / "warm.json"
     stored = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     for kind, seed in KINDS:
@@ -75,7 +76,7 @@ def main():
 
         labels = partitions(HX, BASIC_LEVEL)
         pi, done, sweep_time = north_west_start(coarse, HX, HY, 0), 0, 0.0
-        for sweeps in SWEEPS:
+        for sweeps in sweep_counts:
             while done < sweeps:
                 start = perf_counter()
                 for partition in labels:
