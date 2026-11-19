@@ -95,7 +95,7 @@ def time_figure(runs, folder, guides):
 
 def sparsity_figure(runs, folder):
     fig, axes = plt.subplots(1, 2, figsize=(TEXT_WIDTH, 0.42 * TEXT_WIDTH), layout="constrained")
-    values = ((lambda run: run["per level"][-1]["last N per cell"], r"$|N| \,/\, |X|$ at level 0"),
+    values = ((lambda run: run["per level"][-1]["last N per cell"], r"$|\mathcal{N}| \,/\, |X|$ at level 0"),
               (lambda run: run["per level"][-1]["rounds"], "rounds at level 0"))
     for axis, (value, label) in zip(axes, values):
         for kind in KINDS:

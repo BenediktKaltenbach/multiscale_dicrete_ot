@@ -57,7 +57,7 @@ def level0(runs, folder):
     strip_plot(left, runs, VARIANTS, "problem", lambda run: len(run["levels"][-1]["history"]), "iterations at level 0")
     left.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
     strip_plot(right, runs, VARIANTS, "problem",
-               lambda run: run["levels"][-1]["history"][-1]["N"] / run["cells per level"][0], r"$|N| \,/\, |X|$ at level 0")
+               lambda run: run["levels"][-1]["history"][-1]["N"] / run["cells per level"][0], r"$|\mathcal{N}| \,/\, |X|$ at level 0")
     strip_legend(fig, VARIANTS)
     save(fig, folder, "masks_level0")
 
