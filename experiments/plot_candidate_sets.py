@@ -17,11 +17,11 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
 
-from thesis_style import ACCENT, INK, KINDS, MUTED, TEXT_WIDTH, save, strip_legend, strip_plot, style
+from thesis_style import BLUE, GREEN, KINDS, ORANGE, TEXT_WIDTH, save, strip_legend, strip_plot, style
 
-LOOKS = {"1-ring": dict(color=ACCENT, marker="o", label="Delaunay 1-ring", linestyle="-"),
-         "6 sectors": dict(color=INK, marker="^", label="6 sector neighbours", linestyle=":"),
-         "8 sectors": dict(color=MUTED, marker="s", label="8 sector neighbours", linestyle="--")}
+LOOKS = {"1-ring": dict(color=BLUE, marker="o", label="Delaunay 1-ring", linestyle="-"),
+         "6 sectors": dict(color=GREEN, marker="^", label="6 sector neighbours", linestyle="-"),
+         "8 sectors": dict(color=ORANGE, marker="s", label="8 sector neighbours", linestyle="-")}
 VERSIONS = {"": ("1-ring", "8 sectors"), "_with_6_sectors": ("1-ring", "6 sectors", "8 sectors")}
 
 

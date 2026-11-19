@@ -14,13 +14,12 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
 
-from thesis_style import ACCENT, INK, KINDS, LATEX, MUTED, TEXT_WIDTH, save, strip_legend, strip_plot, style
+from thesis_style import BLUE, KIND_COLOURS, KINDS, LATEX, MUTED, ORANGE, TEXT_WIDTH, save, strip_legend, strip_plot, style
 
-VARIANTS = {False: dict(color=MUTED, marker="s", label="pruning off"),
-            True: dict(color=ACCENT, marker="o", label="pruning on")}
-KIND_LOOKS = {"uniform": dict(color=ACCENT, marker="o", linestyle="-"),
-              "clustered": dict(color=MUTED, marker="s", linestyle="--"),
-              "grid": dict(color=INK, marker="^", linestyle=":")}
+VARIANTS = {False: dict(color=BLUE, marker="o", label="pruning off"),
+            True: dict(color=ORANGE, marker="s", label="pruning on")}
+KIND_LOOKS = {kind: dict(color=KIND_COLOURS[kind], marker=marker, linestyle="-")
+              for kind, marker in (("grid", "s"), ("uniform", "o"), ("clustered", "^"))}
 
 
 def times(runs, folder):
@@ -37,7 +36,7 @@ def ratio(runs, folder):
         pairs.setdefault((run["kind"], run["seed"]), {})[run["prune"]] = run["shield time"]
     ratios = [{"kind": kind, "seed": seed, "variant": "ratio", "ratio": shield[True] / shield[False]}
               for (kind, seed), shield in pairs.items()]
-    look = {"ratio": dict(color=ACCENT, marker="o", label="one seed")}
+    look = {"ratio": dict(color=BLUE, marker="o", label="one seed")}
     fig, axis = plt.subplots(figsize=(TEXT_WIDTH, 0.36 * TEXT_WIDTH), layout="constrained")
     axis.axhline(1, color=MUTED, lw=0.5, zorder=1)
     strip_plot(axis, ratios, look, "variant", lambda run: run["ratio"], "shield time on / off")
@@ -71,7 +70,7 @@ def dropped(runs, folder):
         axis.set_xticks(levels)
         axis.plot(levels, shares, color=look["color"],
                   linestyle=look["linestyle"], marker=look["marker"], markersize=3.5, lw=1.1,
-                  markerfacecolor=look["color"] if look["marker"] != "s" else "white", label=kind)
+                  markerfacecolor=look["color"] if look["marker"] == "o" else "white", label=kind)
     axis.invert_xaxis()
     axis.set_xlabel(r"level $k$ (0 = finest)")
     axis.set_ylabel(r"dropped [\%]" if LATEX else "dropped [%]")

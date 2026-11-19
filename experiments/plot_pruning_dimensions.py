@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
 
-from thesis_style import ACCENT, INK, LATEX, MUTED, TEXT_WIDTH, save, strip_legend, strip_plot, style
+from thesis_style import BLUE, GREEN, KIND_COLOURS, LATEX, MUTED, ORANGE, TEXT_WIDTH, save, strip_legend, strip_plot, style
 
 KINDS = ("uniform", "clustered")
-VARIANTS = {"off": dict(color=MUTED, marker="s", label="no pruning"),
-            "exact": dict(color=INK, marker="^", label="exact facets"),
-            "closest": dict(color=ACCENT, marker="o", label="closest 60 %")}
-LINES = {(4, "uniform"): dict(color=MUTED, linestyle="-", marker="s"), (4, "clustered"): dict(color=MUTED, linestyle="--", marker="s"),
-         (5, "uniform"): dict(color=ACCENT, linestyle="-", marker="o"), (5, "clustered"): dict(color=ACCENT, linestyle="--", marker="o")}
+VARIANTS = {"off": dict(color=BLUE, marker="o", label="no pruning"),
+            "exact": dict(color=ORANGE, marker="s", label="exact facets"),
+            "closest": dict(color=GREEN, marker="^", label="closest 60 %")}
+LINES = {(dimension, kind): dict(color=KIND_COLOURS[kind], linestyle=linestyle, marker=marker)
+         for dimension, linestyle in ((4, "--"), (5, "-")) for kind, marker in (("uniform", "o"), ("clustered", "^"))}
 
 
 def dimensions(runs):
