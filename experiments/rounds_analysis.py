@@ -25,6 +25,7 @@ def level_rounds(run, level):
     gaps = (costs - costs[-1]) / costs[-1]
     times = np.array([step["time_solve"] + step["time_shield"] for step in history])
     record = {"k": level["k"], "R": len(history), "gaps": gaps.tolist(), "level time": times.sum(),
+              "last decreases": ((costs[:-1] - costs[1:]) / costs[1:]).tolist(),
               "N first": history[0]["N"] / level["cells"][0], "N max": max(step["N"] for step in history) / level["cells"][0],
               "N last": history[-1]["N"] / level["cells"][0]}
     for epsilon in EPSILONS:
@@ -63,6 +64,16 @@ def table(records):
                          f"{np.mean([level['N last'] for level in levels]):8.1f}")
     certifying = sum(record["levels"][-1]["gaps"][-2] == 0 for record in records if record["levels"][-1]["R"] > 1)
     lines += ["", f"g = 0 already in round R - 1 (the last round only certifies): {certifying} of {len(records)} runs"]
+    lines += ["", "stopping rule per level (all levels): last decrease (C_{R-1} - C_R) / C_R > 1e-12 means containment fired; "
+              "otherwise the cost rule (containment may hold as well)"]
+    for kind in KINDS:
+        levels = [level for record in records if record["kind"] == kind for level in record["levels"] if level["R"] > 1]
+        decreases = np.array([level["last decreases"][-1] for level in levels])
+        lines.append(f"{kind:9s}: {len(levels)} levels, containment {np.sum(decreases > 1e-12)}, cost {np.sum(decreases <= 1e-12)} "
+                     f"(of these decrease exactly 0: {np.sum(decreases == 0)}, in (0, 1e-12]: {np.sum((decreases > 0) & (decreases <= 1e-12))})")
+    finals = np.array([decrease for record in records for decrease in record["levels"][-1]["last decreases"][-4:-1]])
+    lines.append("level 0, the three decreases before the last one: "
+                 + ", ".join(f"{np.mean(finals <= bound):.0%} <= {bound:.0e}" for bound in (1e-12, 1e-11, 1e-10, 1e-9)))
     lines += ["", "per run, level 0: R, r(1e-3), r(1e-6), r(1e-9), g_1, tail share of total after r(1e-6); rounds of the coarser levels"]
     for record in sorted(records, key=lambda record: (KINDS.index(record["kind"]), record["n"], record["seed"])):
         level = record["levels"][-1]
