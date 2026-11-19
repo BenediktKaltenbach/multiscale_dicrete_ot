@@ -15,10 +15,10 @@ import matplotlib.ticker
 import numpy as np
 
 from masks import MASKS, N, inside, problems
-from thesis_style import ACCENT, INK, MUTED, TEXT_WIDTH, save, strip_legend, strip_plot, style
+from thesis_style import BLUE, INK, ORANGE, TEXT_WIDTH, save, strip_legend, strip_plot, style
 
-VARIANTS = {"unmasked": dict(color=MUTED, marker="s", label="without masks"),
-            "masked": dict(color=ACCENT, marker="o", label="with masks")}
+VARIANTS = {"masked": dict(color=BLUE, marker="o", label="with masks"),
+            "unmasked": dict(color=ORANGE, marker="s", label="without masks")}
 
 
 def problem(folder):

@@ -10,6 +10,8 @@ import numpy as np
 TEXT_WIDTH = 345 / 72.27  # \textwidth of the article class at 10pt, in inches: figures are used at 100%
 LATEX = shutil.which("pdflatex") is not None
 ACCENT, MUTED, INK, FAINT = "#2b5d8c", "#6b7380", "#1d232b", "#c9ced6"
+BLUE, ORANGE, GREEN = ACCENT, "#d17a22", "#3b8f6a"  # roles in docs/figures.md: default, first, second alternative
+KIND_COLOURS = {"grid": GREEN, "uniform": BLUE, "clustered": ORANGE}
 KINDS = ("grid", "uniform", "clustered")  # order of the point kinds in every figure
 
 

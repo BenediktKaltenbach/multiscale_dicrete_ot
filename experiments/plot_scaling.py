@@ -17,14 +17,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.text import Text
 
-from thesis_style import ACCENT, FAINT, INK, KINDS, MUTED, TEXT_WIDTH, save, style
+from thesis_style import BLUE, FAINT, GREEN, INK, KIND_COLOURS, KINDS, MUTED, ORANGE, TEXT_WIDTH, save, style
 
-KIND_LOOKS = {"grid": dict(marker="s", linestyle="--"), "uniform": dict(marker="o", linestyle="-"),
-              "clustered": dict(marker="^", linestyle=":")}
+KIND_LOOKS = {kind: dict(color=KIND_COLOURS[kind], marker=marker)
+              for kind, marker in (("grid", "s"), ("uniform", "o"), ("clustered", "^"))}
 DENSE_LOOKS = {"pot": dict(color=MUTED, marker="D", label="POT (dense)"),
                "cplex dense": dict(color=INK, marker="x", label="CPLEX (dense)")}
-SHARES = {"solve time": (ACCENT, "local solver"), "shield time": (MUTED, "shield"),
-          "hierarchy time": (INK, "hierarchy"), "other time": (FAINT, "other")}
+SHARES = {"solve time": (BLUE, "local solver"), "shield time": (ORANGE, "shield"),
+          "hierarchy time": (GREEN, "hierarchy"), "other time": (FAINT, "other")}
 SIZES_SHOWN = [2**10, 2**13, 2**16]
 
 
@@ -59,7 +59,7 @@ class LineLabel(Text):
 def time_figure(runs, folder, guides):
     fig, axes = plt.subplots(1, len(KINDS), figsize=(TEXT_WIDTH, 0.42 * TEXT_WIDTH), layout="constrained",
                              sharex=True, sharey=True)
-    multiscale = dict(color=ACCENT, marker="o", label="multiscale")
+    multiscale = dict(color=BLUE, marker="o", label="multiscale")
     for axis, kind in zip(axes, KINDS):
         own = [run for run in runs if run["kind"] == kind]
         for name, look in (("total time", multiscale), *DENSE_LOOKS.items()):
@@ -101,16 +101,16 @@ def sparsity_figure(runs, folder):
         for kind in KINDS:
             own = [run for run in runs if run["kind"] == kind]
             look = KIND_LOOKS[kind]
-            scatter(axis, [run["n"] for run in own], [value(run) for run in own], look, ACCENT)
-            axis.plot(*series(own, value), color=ACCENT, lw=0.8, linestyle=look["linestyle"])
+            scatter(axis, [run["n"] for run in own], [value(run) for run in own], look, look["color"])
+            axis.plot(*series(own, value), color=look["color"], lw=0.8)
         axis.set_xscale("log", base=2)
         axis.set_xticks(sorted({run["n"] for run in runs})[::2])
         axis.minorticks_off()
         axis.set_ylim(0, 1.1 * max(value(run) for run in runs))
         axis.set_xlabel(r"$n$")
         axis.set_ylabel(label)
-    handles = [plt.Line2D([], [], color=ACCENT, lw=0.8, linestyle=look["linestyle"], marker=look["marker"],
-                          markersize=3.5, markerfacecolor="white" if look["marker"] in "s^" else ACCENT, label=kind)
+    handles = [plt.Line2D([], [], color=look["color"], lw=0.8, marker=look["marker"], markersize=3.5,
+                          markerfacecolor="white" if look["marker"] in "s^" else look["color"], label=kind)
                for kind, look in KIND_LOOKS.items()]
     fig.legend(handles=handles, loc="outside lower center", ncols=len(handles), frameon=False)
     save(fig, folder, "scaling_sparsity")
