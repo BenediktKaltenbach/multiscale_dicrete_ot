@@ -59,10 +59,12 @@ def time_figure(runs, folder, guides):
             for slope, linestyle in ((1, (0, (1, 2))), (2, (0, (4, 3)))):
                 axis.plot(sizes, anchor * (sizes / sizes[0]) ** slope, color=FAINT, lw=0.8, linestyle=linestyle,
                           zorder=1)
-                if kind == "uniform":
-                    axis.annotate(f"slope {slope}", (sizes[1], anchor * (sizes[1] / sizes[0]) ** slope),
-                                  xytext=(-2, -4), textcoords="offset points", ha="right", va="top", color=MUTED,
-                                  fontsize=8)
+                if axis is axes[0]:
+                    x = sizes[1] / 2**0.6
+                    y = anchor * (x / sizes[0]) ** slope
+                    axis.text(x, y * (1.4 if slope == 2 else 1 / 1.4), f"slope {slope}", color=MUTED, fontsize=8,
+                              ha="center", va="bottom" if slope == 2 else "top", rotation_mode="anchor",
+                              rotation=np.degrees(np.arctan2(slope * y / x, 1)), transform_rotates_text=True)
         axis.set_xscale("log", base=2)
         axis.set_yscale("log")
         axis.set_xticks(SIZES_SHOWN)
