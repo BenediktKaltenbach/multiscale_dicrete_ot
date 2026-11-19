@@ -15,10 +15,11 @@ from msot.verify import dual_violation, is_shielding
 
 
 class TestSolveMultiscale(unittest.TestCase):
-    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None, dilation=True):
+    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None, dilation=True, north_west=True):
         cost, solver = SquaredEuclidean(), Cplex()
         HX, HY = build_pair_quadtree(X, mu, Y, nu) if quadtree else build_pair(X, mu, Y, nu, n_dense)
-        pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=candidates, dilation=dilation)
+        pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=candidates, dilation=dilation,
+                                                north_west=north_west)
         pi_dense = solve_dense(X, Y, mu, nu, cost, Cplex(warm_start=False))[0]
         C = pi.data @ cost.c(X[pi.row], Y[pi.col])
         C_dense = pi_dense.data @ cost.c(X[pi_dense.row], Y[pi_dense.col])
@@ -50,6 +51,9 @@ class TestSolveMultiscale(unittest.TestCase):
 
     def test_without_dilation(self):
         self.check(*make_problem(400, "uniform", np.random.default_rng(0)), dilation=False)
+
+    def test_without_north_west(self):
+        self.check(*make_problem(400, "clustered", np.random.default_rng(0)), north_west=False)
 
     def test_dilate(self):
         X, mu, Y, nu = make_problem(400, "uniform", np.random.default_rng(1))

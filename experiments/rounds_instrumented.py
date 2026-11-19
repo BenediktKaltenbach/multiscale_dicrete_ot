@@ -28,8 +28,8 @@ FLOOR_SHARE = 0.01  # relative mass mu(x) n / sum(mu) below this: a point of the
 
 
 class RecordingCplex(Cplex):
-    def solve_local(self, rows, columns, c, mu, nu, state=None):
-        pi, alpha, beta, state = super().solve_local(rows, columns, c, mu, nu, state)
+    def solve_local(self, rows, columns, c, mu, nu, state=None, start=None):
+        pi, alpha, beta, state = super().solve_local(rows, columns, c, mu, nu, state, start)
         self.last = rows, columns, alpha, beta
         return pi, alpha, beta, state
 

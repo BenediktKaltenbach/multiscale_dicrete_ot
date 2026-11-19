@@ -1,6 +1,7 @@
 import cplex
 import numpy as np
 from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
 
 from .base import LocalSolver
 
@@ -16,6 +17,8 @@ class Cplex(LocalSolver):
     refined N1 stay exactly feasible. Float masses are scaled to mean mass 1 (tolerances are absolute). With warm_start, state keeps the model and the entry key (row * size_y + column) of each
     model column; the next call adds the new entries of N, deletes only nonbasic columns outside N and CPLEX
     continues from the current basis.
+    Without state, start (a coupling on N) gives the starting basis: a spanning tree of the graph of N that prefers
+    spt start (start_basis).
     """
 
     def __init__(self, optimality_tolerance=1e-9, warm_start=True, threads=1):
@@ -23,7 +26,7 @@ class Cplex(LocalSolver):
         self.warm_start = warm_start
         self.threads = threads
 
-    def solve_local(self, rows, columns, c, mu, nu, state=None):
+    def solve_local(self, rows, columns, c, mu, nu, state=None, start=None):
         size_x, size_y = len(mu), len(nu)
         integral = is_integral(mu) and is_integral(nu)
         scale = 1.0 if integral else size_x / mu.sum()
@@ -33,6 +36,8 @@ class Cplex(LocalSolver):
             keys = update_columns(model, state["keys"], keys, c, size_x, size_y)
         else:
             model = self.build(rows, columns, c, mu, nu, scale, integral)
+            if start is not None:
+                set_start(model, start_basis(start, rows, columns, size_x, size_y), size_x + size_y)
         model.solve()
         if model.solution.get_status() != model.solution.status.optimal:
             raise RuntimeError(model.solution.get_status_string())
@@ -87,3 +92,22 @@ def update_columns(model, model_keys, keys, c, size_x, size_y):
     if new.any():
         add_columns(model, keys[new] // size_y, keys[new] % size_y, np.asarray(c)[new], size_x)
     return np.concatenate([model_keys, keys[new]])
+
+
+def start_basis(start, rows, columns, size_x, size_y):
+    """Mask of the entries of N in a spanning tree of the bipartite graph of N (minimum spanning tree, weight 1 on
+    spt start, 2 elsewhere). If spt start is a forest, the basis of this tree reproduces start."""
+    keys = rows.astype(np.int64) * size_y + columns
+    positive = start.data > 0
+    in_support = np.isin(keys, start.row[positive].astype(np.int64) * size_y + start.col[positive])
+    nodes = size_x + size_y
+    graph = coo_matrix((np.where(in_support, 1.0, 2.0), (rows, size_x + columns)), shape=(nodes, nodes)).tocsr()
+    tree = minimum_spanning_tree(graph).tocoo()
+    return np.isin(keys, tree.row.astype(np.int64) * size_y + (tree.col - size_x))
+
+
+def set_start(model, basic, number_of_rows):
+    """Columns in basic are basic, all others at 0; one row is basic (the transport constraints have rank m + n - 1)."""
+    status = model.start.status
+    model.start.set_start(np.where(basic, status.basic, status.at_lower_bound).tolist(),
+                          [status.basic] + [status.at_lower_bound] * (number_of_rows - 1), [], [], [], [])
