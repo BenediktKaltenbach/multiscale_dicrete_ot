@@ -35,11 +35,14 @@ def save(fig, folder, name):
     plt.close(fig)
 
 
-def strip_plot(axis, runs, variants, field, value, label, kinds=KINDS):
-    """Per point kind: one marker per seed for each variant (run[field] == key of variants), the mean as a short bar."""
+def strip_plot(axis, runs, variants, field, value, label, kinds=KINDS, spacing=1.0):
+    """Per point kind: one marker per seed for each variant (run[field] == key of variants), the mean as a short bar.
+
+    spacing: distance between the point kinds on the x axis (1 = default; larger values separate the groups more).
+    """
     gap = 0.34 if len(variants) <= 2 else 0.26
     offsets = (np.arange(len(variants)) - (len(variants) - 1) / 2) * gap
-    for position, kind in enumerate(kinds):
+    for position, kind in zip(spacing * np.arange(len(kinds)), kinds):
         for offset, (name, look) in zip(offsets, variants.items()):
             values = np.array([value(run) for run in runs if run["kind"] == kind and run[field] == name])
             spread = np.linspace(-0.2 * gap, 0.2 * gap, len(values))
@@ -48,9 +51,9 @@ def strip_plot(axis, runs, variants, field, value, label, kinds=KINDS):
                          zorder=3)
             axis.plot([position + offset - 0.38 * gap, position + offset + 0.38 * gap], [values.mean()] * 2,
                       color=look["color"], lw=1.2, zorder=2)
-    axis.set_xticks(range(len(kinds)), kinds)
+    axis.set_xticks(spacing * np.arange(len(kinds)), kinds)
     axis.tick_params(axis="x", length=0)
-    axis.set_xlim(-0.6, len(kinds) - 0.4)
+    axis.set_xlim(-0.6, spacing * (len(kinds) - 1) + 0.6)
     axis.set_ylabel(label)
     axis.set_ylim(0, 1.1 * max(value(run) for run in runs if run[field] in variants))
 
