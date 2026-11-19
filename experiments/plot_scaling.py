@@ -15,6 +15,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.text import Text
 
 from thesis_style import ACCENT, FAINT, INK, KINDS, MUTED, TEXT_WIDTH, save, style
 
@@ -42,6 +43,19 @@ def scatter(axis, sizes, values, look, color):
                  facecolor="white" if look["marker"] in "s^D" else color, zorder=3)
 
 
+class LineLabel(Text):
+    """Text parallel to a line given by two points in data coordinates; the angle is taken when drawn."""
+
+    def __init__(self, line, *arguments, **keywords):
+        super().__init__(*arguments, **keywords)
+        self.line = line
+
+    def draw(self, renderer):
+        (x0, y0), (x1, y1) = self.axes.transData.transform(self.line)
+        self.set_rotation(np.degrees(np.arctan2(y1 - y0, x1 - x0)))
+        super().draw(renderer)
+
+
 def time_figure(runs, folder, guides):
     fig, axes = plt.subplots(1, len(KINDS), figsize=(TEXT_WIDTH, 0.42 * TEXT_WIDTH), layout="constrained",
                              sharex=True, sharey=True)
@@ -57,14 +71,14 @@ def time_figure(runs, folder, guides):
             sizes = np.array([min(run["n"] for run in own), max(run["n"] for run in own)])
             anchor = np.mean([run["total time"] for run in own if run["n"] == sizes[0]])
             for slope, linestyle in ((1, (0, (1, 2))), (2, (0, (4, 3)))):
-                axis.plot(sizes, anchor * (sizes / sizes[0]) ** slope, color=FAINT, lw=0.8, linestyle=linestyle,
-                          zorder=1)
+                line = np.column_stack([sizes, anchor * (sizes / sizes[0]) ** slope])
+                axis.plot(*line.T, color=FAINT, lw=0.8, linestyle=linestyle, zorder=1)
                 if axis is axes[0]:
                     x = sizes[1] / 2**0.6
                     y = anchor * (x / sizes[0]) ** slope
-                    axis.text(x, y * (1.4 if slope == 2 else 1 / 1.4), f"slope {slope}", color=MUTED, fontsize=8,
-                              ha="center", va="bottom" if slope == 2 else "top", rotation_mode="anchor",
-                              rotation=np.degrees(np.arctan2(slope * y / x, 1)), transform_rotates_text=True)
+                    axis.add_artist(LineLabel(line, x, y * (1.4 if slope == 2 else 1 / 1.4), f"slope {slope}",
+                                              color=MUTED, fontsize=8, ha="center", clip_on=False,
+                                              va="bottom" if slope == 2 else "top", rotation_mode="anchor"))
         axis.set_xscale("log", base=2)
         axis.set_yscale("log")
         axis.set_xticks(SIZES_SHOWN)
