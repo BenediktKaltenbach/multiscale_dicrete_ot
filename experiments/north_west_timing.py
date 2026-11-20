@@ -1,5 +1,5 @@
 """Whole solve_multiscale with and without the north-west start, alternated A B B A per problem
-(A = north_west=False, B = north_west=True), power status recorded before each run (Win32_Battery, 2 = mains).
+(A = north_west=None, B = north_west="index"), power status recorded before each run (Win32_Battery, 2 = mains).
 Writes results/north_west/runs.json after every run; a restart continues where the stored runs end.
 
 python experiments/north_west_timing.py [n, default 65536]
