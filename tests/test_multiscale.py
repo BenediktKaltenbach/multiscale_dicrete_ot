@@ -15,7 +15,7 @@ from msot.verify import dual_violation, is_shielding
 
 
 class TestSolveMultiscale(unittest.TestCase):
-    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None, dilation=True, north_west=True):
+    def check(self, X, mu, Y, nu, n_dense=8, quadtree=False, candidates=None, dilation=True, north_west="index"):
         cost, solver = SquaredEuclidean(), Cplex()
         HX, HY = build_pair_quadtree(X, mu, Y, nu) if quadtree else build_pair(X, mu, Y, nu, n_dense)
         pi, alpha, beta, info = solve_multiscale(HX, HY, cost, solver, candidates=candidates, dilation=dilation,
@@ -53,7 +53,10 @@ class TestSolveMultiscale(unittest.TestCase):
         self.check(*make_problem(400, "uniform", np.random.default_rng(0)), dilation=False)
 
     def test_without_north_west(self):
-        self.check(*make_problem(400, "clustered", np.random.default_rng(0)), north_west=False)
+        self.check(*make_problem(400, "clustered", np.random.default_rng(0)), north_west=None)
+
+    def test_transport_order(self):
+        self.check(*make_problem(400, "uniform", np.random.default_rng(0)), north_west="transport")
 
     def test_dilate(self):
         X, mu, Y, nu = make_problem(400, "uniform", np.random.default_rng(1))
@@ -70,16 +73,17 @@ class TestSolveMultiscale(unittest.TestCase):
     def test_north_west_start(self):
         cost = SquaredEuclidean()
         for kind in ["uniform", "clustered", "grid"]:
-            with self.subTest(kind=kind):
-                X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
-                HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
-                coarse = solve_dense(HX.rep_points(1), HY.rep_points(1), HX.mass[1], HY.mass[1], cost,
-                                     Cplex(warm_start=False))[0]
-                start = north_west_start(coarse, HX, HY, 0)
-                self.assertTrue(np.array_equal(np.bincount(start.row, start.data, len(mu)), mu))
-                self.assertTrue(np.array_equal(np.bincount(start.col, start.data, len(nu)), nu))
-                refined = set(zip(*(entries.tolist() for entries in refine(coarse, HX, HY, 0))))
-                self.assertLessEqual(set(zip(start.row.tolist(), start.col.tolist())), refined)
+            X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
+            HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
+            coarse = solve_dense(HX.rep_points(1), HY.rep_points(1), HX.mass[1], HY.mass[1], cost,
+                                 Cplex(warm_start=False))[0]
+            refined = set(zip(*(entries.tolist() for entries in refine(coarse, HX, HY, 0))))
+            for order in ["index", "transport"]:
+                with self.subTest(kind=kind, order=order):
+                    start = north_west_start(coarse, HX, HY, 0, order)
+                    self.assertTrue(np.array_equal(np.bincount(start.row, start.data, len(mu)), mu))
+                    self.assertTrue(np.array_equal(np.bincount(start.col, start.data, len(nu)), nu))
+                    self.assertLessEqual(set(zip(start.row.tolist(), start.col.tolist())), refined)
 
     def test_quadtree(self):
         for kind in ["clustered", "grid"]:

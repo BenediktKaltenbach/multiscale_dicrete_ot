@@ -46,7 +46,7 @@ def main():
         for variant in ORDER[len(runs):]:
             mains = on_mains()
             start = perf_counter()
-            pi, alpha, beta, info = solve_multiscale(HX, HY, cost, Cplex(), north_west=variant == "B")
+            pi, alpha, beta, info = solve_multiscale(HX, HY, cost, Cplex(), north_west="index" if variant == "B" else None)
             total = perf_counter() - start
             levels = [{"k": level["k"], "rounds": len(level["history"]),
                        "first solve": level["history"][0]["time_solve"],
