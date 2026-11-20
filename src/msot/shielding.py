@@ -90,6 +90,31 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12, chunk=4096):
     The search runs on chunks of x_A to bound memory (about 75 kB per x_A at peak).
     """
     t = extract_map(pi)
+    return unique_entries(*_shield_rows(pi, t, S, X, Yh, k, cost, tolerance, np.arange(len(X)), chunk), Yh.number_of_cells(k))
+
+
+def shield_changed(pi, previous, S, X, Yh, k, cost, tolerance=1e-12, chunk=4096):
+    """shield(pi) from the previous round at the same level, previous = (pi, N) with N = shield(previous pi).
+
+    Row x_A of shield(pi) depends only on spt pi(x_A, .) and on t(x_s) for x_s in S(x_A). Rows where both are
+    unchanged keep their entries of the previous N; only the other rows are shielded again. Same result as shield.
+    """
+    pi_old, (rows_old, columns_old) = previous
+    t, t_old = extract_map(pi), extract_map(pi_old)
+    size_y = Yh.number_of_cells(k)
+    support = np.setxor1d(pi.row.astype(np.int64) * size_y + pi.col, pi_old.row.astype(np.int64) * size_y + pi_old.col)
+    redo = np.zeros(len(X), dtype=bool)
+    redo[support // size_y] = True
+    index_pointer, indices = S
+    owner = np.repeat(np.arange(len(X)), np.diff(index_pointer))
+    redo[owner[(t != t_old)[indices]]] = True
+    keep = ~redo[rows_old]
+    rows, columns = _shield_rows(pi, t, S, X, Yh, k, cost, tolerance, np.flatnonzero(redo), chunk)
+    return unique_entries(np.concatenate([rows_old[keep], rows]), np.concatenate([columns_old[keep], columns]), size_y)
+
+
+def _shield_rows(pi, t, S, X, Yh, k, cost, tolerance, sources, chunk):
+    """The entries of shield(pi) in the rows x_A in sources (with repetitions)."""
     Y = Yh.rep_points(k)
     index_pointer, indices = S
     owner = np.repeat(np.arange(len(X)), np.diff(index_pointer))
@@ -100,16 +125,17 @@ def shield(pi, S, X, Yh, k, cost, tolerance=1e-12, chunk=4096):
         if not needed.all():
             search = _subset(owner, indices, needed, len(X))
             dropped = _subset(owner, indices, ~needed, len(X))
-    rows, columns = [pi.row, owner], [pi.col, t[indices]]
-    for start in range(0, len(X), chunk): #batchwise search to limit memory usage
-        sources = np.arange(start, min(start + chunk, len(X)))
-        missed_x, missed_y = search_all(X, search, Y[t[search[1]]], Yh, k, cost, tolerance, sources)
+    in_sources = np.zeros(len(X), dtype=bool)
+    in_sources[sources] = True
+    support, candidates = in_sources[pi.row], in_sources[owner]
+    rows, columns = [pi.row[support], owner[candidates]], [pi.col[support], t[indices[candidates]]]
+    for start in range(0, len(sources), chunk): #batchwise search to limit memory usage
+        missed_x, missed_y = search_all(X, search, Y[t[search[1]]], Yh, k, cost, tolerance, sources[start:start + chunk])
         if dropped is not None:
             missed_x, missed_y = filter_missed(missed_x, missed_y, X, dropped, Y[t[dropped[1]]], Y, cost, tolerance)
         rows.append(missed_x)
         columns.append(missed_y)
-    rows, columns = np.concatenate(rows), np.concatenate(columns)
-    return unique_entries(rows, columns, len(Y))
+    return np.concatenate(rows), np.concatenate(columns)
 
 
 def unique_entries(rows, columns, n):

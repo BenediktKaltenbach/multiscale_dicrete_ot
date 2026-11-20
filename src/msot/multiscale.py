@@ -3,25 +3,31 @@ from time import perf_counter
 import numpy as np
 from scipy.sparse import coo_matrix
 
-from .shielding import shield, unique_entries
+from .shielding import shield, shield_changed, unique_entries
 
 
-def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tolerance=1e-12, max_iterations=100, start=None):
+def solve_sparse(X, mu, Yh, k, cost, S, N1, solver, tolerance=1e-12, max_iterations=100, start=None,
+                 incremental=True):
     """
     Alg. 4.1 at scale k, X the points of X_k. Stops when N no longer grows or C(pi) no longer decreases.
     Alternates solving the local problem and shielding until convergence. Returns the coupling pi, dual potentials alpha, beta, the support N, and a history of costs and times.
     start: optional coupling on N1 handed to the first solve (solve_local).
+    incremental: rounds after the first shield only the rows that changed (shield_changed); same N as shield.
     """
     Y, nu = Yh.rep_points(k), Yh.mass[k]
     rows, columns = N1
-    state, C_old, history = None, np.inf, []
+    state, C_old, history, previous = None, np.inf, [], None
     for _ in range(max_iterations):
         began = perf_counter()
         c = cost.c(X[rows], Y[columns])
         pi, alpha, beta, state = solver.solve_local(rows, columns, c, mu, nu, state, start)
         start = None
         solved = perf_counter()
-        new_rows, new_columns = shield(pi, S, X, Yh, k, cost, tolerance)
+        if incremental and previous is not None:
+            new_rows, new_columns = shield_changed(pi, previous, S, X, Yh, k, cost, tolerance)
+        else:
+            new_rows, new_columns = shield(pi, S, X, Yh, k, cost, tolerance)
+        previous = pi, (new_rows, new_columns)
         C = float(pi.data @ cost.c(X[pi.row], Y[pi.col]))
         history.append({"C": C, "N": len(rows), "time_solve": solved - began, "time_shield": perf_counter() - solved})
         old_keys = rows.astype(np.int64) * len(Y) + columns
@@ -111,7 +117,7 @@ def _along_transport(pi, HX, HY, k, H, coarse, partner):
 
 
 def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, candidates=None, dilation=True,
-                     north_west="index"):
+                     north_west="index", incremental=True):
     """Alg. 4.6, starting from the trivial problem at level K.
 
     candidates(HX, k) gives S on X_k; by default the 1-ring of the level's mesh, HX.neighbours[k].
@@ -119,6 +125,7 @@ def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, 
     level can already move mass across the borders of the refined blocks; False gives Schmitzer's N1.
     north_west: the first solve of each level starts from north_west_start of the coarser coupling (lies in N1),
     with this order ("index" or "transport"); None starts cold.
+    incremental: see solve_sparse.
     """
     K = HX.K
     pi = coo_matrix((HX.mass[K], ([0], [0])), shape=(1, 1)) #initial trivial coupling
@@ -130,7 +137,7 @@ def solve_multiscale(HX, HY, cost, solver, tolerance=1e-12, max_iterations=100, 
         S = candidates(HX, k) if candidates else HX.neighbours[k] #default is 1-ring, but candidates can be provided, e. g. bracketed candidates
         start = north_west_start(pi, HX, HY, k, north_west) if north_west else None
         pi, alpha, beta, N, history = solve_sparse(HX.rep_points(k), HX.mass[k], HY, k, cost, S, N1,
-                                                   solver, tolerance, max_iterations, start)
+                                                   solver, tolerance, max_iterations, start, incremental)
         info.append({"k": k, "cells": (HX.number_of_cells(k), HY.number_of_cells(k)), "N1": len(N1[0]),
                      "history": history})
     return pi, alpha, beta, info

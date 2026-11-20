@@ -113,7 +113,7 @@ def main():
                 HX, HY = build_pair(X, mu, Y, nu)
                 recorder = Recorder(cost)
                 msot.multiscale.shield = lambda *a, **b: recorder(*a, **b, chunk=CHUNKS[dimension])
-                solve_multiscale(HX, HY, cost, Cplex())
+                solve_multiscale(HX, HY, cost, Cplex(), incremental=False)
                 run = {"dimension": dimension, "kind": kind, "seed": seed, "levels": summary(recorder.levels),
                        "commit": environment()["commit"]}
                 runs.append(run)

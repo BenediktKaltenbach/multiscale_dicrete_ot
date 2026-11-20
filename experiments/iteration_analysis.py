@@ -36,7 +36,7 @@ def main():
         return rows, columns
 
     multiscale.shield = recording_shield
-    multiscale.solve_multiscale(HX, HY, SquaredEuclidean(), solver())
+    multiscale.solve_multiscale(HX, HY, SquaredEuclidean(), solver(), incremental=False)
     multiscale.shield = original_shield
 
     lines = [f"== n = {n}, {kind}, mesh hierarchy, 1-ring",

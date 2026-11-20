@@ -178,7 +178,7 @@ def main():
         recorder = Recorder(HX, HY, solver, cost)
         msot.multiscale.shield = recorder.shield
         try:
-            pi, alpha, beta, info = msot.multiscale.solve_multiscale(HX, HY, cost, solver)
+            pi, alpha, beta, info = msot.multiscale.solve_multiscale(HX, HY, cost, solver, incremental=False)
         finally:
             msot.multiscale.shield = original_shield
         floor_share_of_all[name] = float(np.mean(recorder.relative_mass < FLOOR_SHARE))

@@ -5,9 +5,9 @@ import numpy as np
 from msot.cost import SquaredEuclidean
 from msot.hierarchy import build_pair
 from msot.mesh import one_ring, sector_neighbours
-from msot.multiscale import solve_sparse
+from msot.multiscale import solve_multiscale, solve_sparse
 from msot.problems import make_problem
-from msot.shielding import extract_map, missed_brute, search_tree, shield, unique_entries
+from msot.shielding import extract_map, missed_brute, search_tree, shield, shield_changed, unique_entries
 from msot.solvers.base import solve_dense
 from msot.solvers.cplex import Cplex
 from msot.verify import dual_violation, is_shielding
@@ -86,6 +86,40 @@ class TestVectorisedShield(unittest.TestCase):
                     result = shield(pi, HX.neighbours[k], Xk, HY, k, cost)
                     np.testing.assert_array_equal(result[0], expected[0])
                     np.testing.assert_array_equal(result[1], expected[1])
+
+
+class TestShieldChanged(unittest.TestCase):
+    def test_equals_shield_in_every_round(self):
+        for kind in ["uniform", "clustered", "grid"]:
+            for prune in (False, True):
+                with self.subTest(kind=kind, prune=prune):
+                    X, mu, Y, nu = make_problem(400, kind, np.random.default_rng(0))
+                    _, HY = build_pair(X, mu, Y, nu, n_dense=8)
+                    cost, solver, S = SquaredEuclidean(prune=prune), Cplex(), one_ring(X)
+                    N = north_west_corner(mu, nu, np.argsort(X[:, 0]), np.argsort(Y[:, 1]))
+                    state, previous, rounds = None, None, 0
+                    while True:
+                        pi, _, _, state = solver.solve_local(*N, cost.c(X[N[0]], Y[N[1]]), mu, nu, state)
+                        full = shield(pi, S, X, HY, 0, cost)
+                        if previous is not None:
+                            changed = shield_changed(pi, previous, S, X, HY, 0, cost)
+                            np.testing.assert_array_equal(changed[0], full[0])
+                            np.testing.assert_array_equal(changed[1], full[1])
+                        rounds += 1
+                        keys = lambda entries: entries[0].astype(np.int64) * len(Y) + entries[1]
+                        if np.isin(keys(full), keys(N)).all():
+                            break
+                        previous, N = (pi, full), full
+                    self.assertGreater(rounds, 2)
+
+    def test_same_history_as_full_shield(self):
+        X, mu, Y, nu = make_problem(400, "clustered", np.random.default_rng(1))
+        HX, HY = build_pair(X, mu, Y, nu, n_dense=8)
+        histories = []
+        for incremental in (True, False):
+            info = solve_multiscale(HX, HY, SquaredEuclidean(), Cplex(), incremental=incremental)[3]
+            histories.append([(round_["C"], round_["N"]) for level in info for round_ in level["history"]])
+        self.assertEqual(histories[0], histories[1])
 
 
 class TestSolveSparse(unittest.TestCase):
